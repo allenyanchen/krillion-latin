@@ -289,13 +289,50 @@
 
   function act(msg) { transport.send({ ...msg, from: me.id }); }
 
+  // ---------- Background music (loops; the scene pulses on every beat) ----------
+  const Music = {
+    SRC: 'sounds/the_mountain-retro-game-593063.mp3?v=202611051340',
+    BPM: 110, FIRST_BEAT: 0.287, // measured from the track
+    VOL: 0.12, DUCK_VOL: 0.04,   // quiet, and quieter still while fahh plays
+    el: null, fade: 0, duckTimer: null,
+    init() {
+      const a = (this.el = new Audio(this.SRC));
+      a.loop = true; a.preload = 'auto'; a.volume = this.VOL;
+      const start = () => a.play().catch(() => {});
+      window.addEventListener('pointerdown', start, { once: true });
+      window.addEventListener('keydown', start, { once: true });
+      Scene.setBeat(() => {
+        if (a.paused) return 0;
+        const period = 60 / this.BPM;
+        let ph = ((a.currentTime - this.FIRST_BEAT) / period) % 1;
+        if (ph < 0) ph += 1;
+        return Math.exp(-ph * 7);
+      });
+    },
+    rampTo(v, ms) {
+      clearInterval(this.fade);
+      const a = this.el, from = a.volume, t0 = performance.now();
+      this.fade = setInterval(() => {
+        const p = Math.min(1, (performance.now() - t0) / ms);
+        a.volume = from + (v - from) * p;
+        if (p >= 1) clearInterval(this.fade);
+      }, 30);
+    },
+    duck(sec) {
+      if (!this.el) return;
+      clearTimeout(this.duckTimer);
+      this.rampTo(this.DUCK_VOL, 120);
+      this.duckTimer = setTimeout(() => this.rampTo(this.VOL, 600), sec * 1000);
+    },
+  };
+
   // ---------- "fahh" + vine boom (plays for everyone when someone loses a heart) ----------
   // The word lasts as long as sounds/faaah.mp3.
   const Fah = {
     fah: null, boom: null, raf: 0, unlocked: false,
     init() {
-      this.fah = new Audio('sounds/faaah.mp3?v=202611042112');
-      this.boom = new Audio('sounds/vine-boom.mp3?v=202611042112');
+      this.fah = new Audio('sounds/faaah.mp3?v=202611051340');
+      this.boom = new Audio('sounds/vine-boom.mp3?v=202611051340');
       for (const a of [this.fah, this.boom]) a.preload = 'auto';
       // Browsers only allow sound after a click, so unlock both on the first one.
       const unlock = () => {
@@ -310,6 +347,7 @@
       window.addEventListener('keydown', unlock, { once: true });
     },
     play() {
+      Music.duck(isFinite(this.fah.duration) ? this.fah.duration : 2);
       for (const a of [this.fah, this.boom]) {
         try { a.currentTime = 0; a.muted = false; a.play().catch(() => {}); } catch (e) {}
       }
@@ -563,6 +601,7 @@
   $('#modeNote').innerHTML = ONLINE ? '🌐 Online multiplayer ready' : '🧪 Local test mode: rooms only work between tabs in this browser.';
   Scene.init($('#scene'));
   Fah.init();
+  Music.init();
   buildCustomizer();
   renderUI();
   if (document.fonts) document.fonts.ready.then(() => updateInsets());

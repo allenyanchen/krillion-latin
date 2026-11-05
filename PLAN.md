@@ -17,6 +17,9 @@ A 2D pixel-art seafloor seen from an angled top-down view. Players stand on moss
 6. **Correct:** +100 points. Then the holder aims with the mouse (a dotted arc follows the cursor) and clicks a player to **throw** the fish.
 7. **Wrong:** a red **−4s** floats up, the fish puffs, and the holder sees the right answer plus a new question.
 8. The fish shows its **countdown** and swells and turns red as time runs low. **The timer resets for every new holder**, starting at 30 s and getting 1.5 s shorter each turn, down to a minimum of **5 s**. Whenever someone loses a heart, it goes back to 30 s. When it hits 0 it **POPs** and the holder loses a heart. Everyone hears **"faaah" + a vine boom** (`sounds/faaah.mp3`, `sounds/vine-boom.mp3`), and the word *fah → fahh → fahhh…* pops up, grows, and fades for as long as the faaah lasts.
+
+### Music
+Background music (`sounds/the_mountain-retro-game-593063.mp3`) loops quietly (12% volume) and dips to 4% while the faaah plays. The scene pulses on every beat (110 BPM, synced to the track). It starts on your first click, since browsers block sound before then.
 9. When a player loses their last heart, they leap into the spike pit and come back as a ghost to watch. The last player standing wins (confetti).
 
 The game needs **at least 2 players**, so it is multiplayer-only by design.

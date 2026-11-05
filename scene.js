@@ -60,6 +60,7 @@ window.Scene = (() => {
   let celebrateUntil = 0, winnerId = null;
   const motes = [];
   let last = now();
+  let beatFn = null, pulse = 0; // music beat pulse (0..1)
 
   // ---------- Pixel primitives ----------
   function rect(c, x, y, w, h) { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); }
@@ -373,7 +374,7 @@ window.Scene = (() => {
   function toInternal(ev) {
     const r = cv.getBoundingClientRect();
     const p = ev.touches ? ev.touches[0] : ev;
-    return { x: (p.clientX - r.left) / SCALE, y: (p.clientY - r.top) / SCALE };
+    return { x: ((p.clientX - r.left) / r.width) * W, y: ((p.clientY - r.top) / r.height) * H };
   }
   function hitTest(x, y) {
     let best = null;
@@ -660,6 +661,7 @@ window.Scene = (() => {
     }
     ctx.globalAlpha = 1;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (pulse > 0.02) { ctx.globalAlpha = 0.05 * pulse; rect('#bdf1ff', 0, 0, W, H); ctx.globalAlpha = 1; }
     if (flashA > 0) { ctx.globalAlpha = flashA; rect('#ffffff', 0, 0, W, H); ctx.globalAlpha = 1; }
   }
 
@@ -667,6 +669,8 @@ window.Scene = (() => {
     const t = now();
     const dt = Math.min(0.05, (t - last) / 1000);
     last = t;
+    pulse = beatFn ? beatFn() : 0;
+    cv.style.transform = pulse > 0.01 ? `scale(${(1 + pulse * 0.008).toFixed(4)})` : '';
     update(dt, t);
     draw(t);
     requestAnimationFrame(frame);
@@ -678,6 +682,7 @@ window.Scene = (() => {
     W = Math.ceil(vw / SCALE); H = Math.ceil(vh / SCALE);
     cv.width = W; cv.height = H;
     cv.style.width = W * SCALE + 'px'; cv.style.height = H * SCALE + 'px';
+    cv.style.transformOrigin = `${vw / 2}px ${vh / 2}px`;
     ctx = cv.getContext('2d');
     ctx.imageSmoothingEnabled = false;
     buildBackground();
@@ -709,6 +714,7 @@ window.Scene = (() => {
     if (Math.abs(r - insetR) < 2 && Math.abs(b - insetB) < 2) return;
     insetR = r; insetB = b; layout();
   }
+  function setBeat(fn) { beatFn = fn; }
   function setTimer(end, total) { fuseEnd = end; fuseTotal = Math.max(1, total); }
 
   function drawPreview(canvas, look) {
@@ -722,7 +728,7 @@ window.Scene = (() => {
   function debug() { return [...ents.values()].map((e) => ({ id: e.id, name: e.name, out: e.out, isMe: e.isMe, x: e.x * SCALE, y: (e.y - 14) * SCALE })); }
 
   return {
-    debug, COLORS, HATS, EYES, init, setPlayers, setPhase, setInsets, setTimer, setAim,
+    debug, COLORS, HATS, EYES, init, setBeat, setPlayers, setPhase, setInsets, setTimer, setAim,
     fishDrop, fishThrow, fishHold, fishBusy, fishTarget, wrong, right, pop, celebrate, drawPreview, normLook,
   };
 })();
