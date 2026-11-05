@@ -294,8 +294,8 @@
   const Fah = {
     fah: null, boom: null, raf: 0, unlocked: false,
     init() {
-      this.fah = new Audio('sounds/faaah.mp3');
-      this.boom = new Audio('sounds/vine-boom.mp3');
+      this.fah = new Audio('sounds/faaah.mp3?v=202611042112');
+      this.boom = new Audio('sounds/vine-boom.mp3?v=202611042112');
       for (const a of [this.fah, this.boom]) a.preload = 'auto';
       // Browsers only allow sound after a click, so unlock both on the first one.
       const unlock = () => {
