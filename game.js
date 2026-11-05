@@ -7,7 +7,6 @@
   const $ = (s) => document.querySelector(s);
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-  const rand = (lo, hi) => lo + Math.random() * (hi - lo);
   const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
   const QS = window.SUBJUNCTIVE_SET;
@@ -15,7 +14,9 @@
   const ONLINE = !!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY && window.supabase);
 
   // Tuning
-  const FUSE_MIN = 25000, FUSE_MAX = 40000;
+  // Each holder gets a fresh timer. It starts at 30s and shrinks 1.5s per turn, down to 5s.
+  const FUSE_START = 30000, FUSE_STEP = 1500, FUSE_MIN = 5000;
+  const THROW_TIME = 700;
   const WRONG_PENALTY = 4000;
   const DROP_TIME = 750;
   const POP_PAUSE = 3200;
@@ -121,7 +122,7 @@
 
   // ---------- Host (authoritative game logic) ----------
   const Host = {
-    deck: [], src: [], cur: null, fuseEnd: 0, timer: null, evN: 0,
+    deck: [], src: [], cur: null, fuseEnd: 0, timer: null, evN: 0, turns: 0,
 
     init() {
       S = {
@@ -160,7 +161,7 @@
         }
         if (S.phase === 'play' && this.player(S.holder)?.gone) {
           const a = this.alive();
-          if (a.length >= 2) { const to = pick(a).id; this.ev('drop', { to }); this.giveTo(to); }
+          if (a.length >= 2) { const to = pick(a).id; this.ev('drop', { to }); this.giveTo(to, DROP_TIME); }
         }
         if (['intro', 'play', 'pop'].includes(S.phase) && this.alive().length < 2) this.finish();
       }
@@ -184,6 +185,7 @@
       if (S.players.length < 2) return toast('Pufferfish Party needs at least 2 players.');
       this.src = S.set === 'both' ? [...QS.present, ...QS.imperfect] : QS[S.set];
       this.deck = shuffle(this.src.slice());
+      this.turns = 0;
       Object.assign(S, { phase: 'intro', round: 0, feed: [], winner: null, holder: null, result: null, qx: null });
       this.log('🎉 The party has started!');
       this.ev('start');
@@ -195,14 +197,19 @@
     newRound(id) {
       S.round++;
       S.phase = 'play';
-      S.fuseTotal = Math.round(rand(FUSE_MIN, FUSE_MAX));
-      this.fuseEnd = Date.now() + S.fuseTotal + DROP_TIME;
       this.ev('drop', { to: id });
-      this.giveTo(id);
+      this.giveTo(id, DROP_TIME);
       this.broadcast();
     },
 
-    giveTo(id) { S.holder = id; S.awaitingPass = false; S.result = null; this.nextQuestion(); },
+    // New holder: fresh (but ever shorter) timer, plus time for the drop/throw animation.
+    giveTo(id, animTime) {
+      S.holder = id; S.awaitingPass = false; S.result = null;
+      S.fuseTotal = Math.max(FUSE_MIN, FUSE_START - this.turns * FUSE_STEP);
+      this.turns++;
+      this.fuseEnd = Date.now() + S.fuseTotal + animTime;
+      this.nextQuestion();
+    },
 
     nextQuestion() {
       if (!this.deck.length) this.deck = shuffle(this.src.slice());
@@ -236,7 +243,7 @@
       if (!t || t.out || t.gone) return;
       this.log(`🐡 ${this.player(from).name} threw to ${t.name}`);
       this.ev('throw', { from, to });
-      this.giveTo(to);
+      this.giveTo(to, THROW_TIME);
       this.broadcast();
     },
 

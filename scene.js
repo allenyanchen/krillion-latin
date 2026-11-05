@@ -46,7 +46,7 @@ window.Scene = (() => {
 
   // ---------- State ----------
   let cv, ctx, W = 480, H = 270, SCALE = 2;
-  let bg = null, fg = null;
+  let bg = null;
   let insetR = 0, insetB = 0; // css px reserved for UI
   let phase = 'home';
   let maxLives = 3;
@@ -154,55 +154,62 @@ window.Scene = (() => {
     ctx = save;
   }
 
-  // ---------- Background ----------
+  // ---------- Background (angled top-down seafloor) ----------
+  let horizonY = 50;
+  function ellipseRows(g, cx, cy, rx, ry, color, seed) {
+    g.fillStyle = color;
+    const R = Math.max(1, Math.round(ry));
+    for (let y = -R; y <= R; y++) {
+      let hw = rx * Math.sqrt(Math.max(0, 1 - (y * y) / (R * R)));
+      if (seed != null) hw += (hash(seed + y * 31) - 0.5) * 2.2;
+      hw = Math.round(hw);
+      if (hw > 0) g.fillRect(Math.round(cx) - hw, Math.round(cy) + y, hw * 2, 1);
+    }
+  }
   function buildBackground() {
+    horizonY = Math.round(H * 0.2);
     bg = document.createElement('canvas'); bg.width = W; bg.height = H;
     const g = bg.getContext('2d');
-    // dithered vertical gradient
-    const stops = ['#14627f', '#0f5370', '#0c4561', '#0a3852', '#082c43', '#072236', '#06192a', '#05121f'];
+    const water = ['#0a2742', '#0c2f4d', '#0f3858', '#124163'].map(rgb);
+    const floor = ['#173d5f', '#1b466c', '#1f5079', '#235884', '#26608d'].map(rgb);
     const img = g.createImageData(W, H);
     const bayer = [0, 2, 3, 1];
-    const cols = stops.map(rgb);
     for (let y = 0; y < H; y++) {
-      const t = (y / H) * (stops.length - 1);
-      const i = Math.min(stops.length - 2, Math.floor(t)), f = t - i;
+      const isFloor = y >= horizonY;
+      const cols = isFloor ? floor : water;
+      const t = isFloor ? ((y - horizonY) / (H - horizonY)) * (cols.length - 1) : (y / horizonY) * (cols.length - 1);
+      const i = Math.min(cols.length - 2, Math.floor(t)), f = t - i;
       for (let x = 0; x < W; x++) {
         const th = (bayer[(y & 1) * 2 + (x & 1)] + 0.5) / 4;
-        const c = f > th ? cols[i + 1] : cols[i];
+        let c = f > th ? cols[i + 1] : cols[i];
+        if (isFloor) {
+          const h = hash(x * 7919 + y * 104729);
+          if (h < 0.07) c = c.map((v) => Math.min(255, v + 16));
+          else if (h > 0.94) c = c.map((v) => Math.max(0, v - 12));
+        }
         const o = (y * W + x) * 4;
         img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 255;
       }
     }
     g.putImageData(img, 0, 0);
-    // stalactites
-    for (let i = 0; i < W / 14; i++) {
-      const x = hash(i * 7 + 1) * W, w = 6 + hash(i * 7 + 2) * 16, h = 8 + hash(i * 7 + 3) * 34;
-      fillPoly(null, [[x - w / 2, 0], [x + w / 2, 0], [x + 1, h]], i % 2 ? '#0a3550' : '#082b42', g);
+    // sand ripples, spaced wider toward the camera
+    for (let i = 0; i < 14; i++) {
+      const yy = horizonY + 6 + Math.pow(i / 14, 1.6) * (H - horizonY - 6);
+      g.fillStyle = 'rgba(190,225,255,0.05)';
+      for (let x = 0; x < W; x++) {
+        if (hash(x + i * 977) < 0.35) continue;
+        g.fillRect(x, Math.round(yy + Math.sin(x / (12 + i * 3) + i) * (1 + i * 0.12)), 1, 1);
+      }
     }
-    // far pillars
-    for (let i = 0; i < W / 40; i++) {
-      const x = hash(i * 13 + 5) * W, w = 14 + hash(i * 13 + 6) * 26, top = H * (0.35 + hash(i * 13 + 7) * 0.4);
-      fillPoly(null, [[x - w / 2, H], [x - w * 0.35, top + 6], [x - w * 0.1, top], [x + w * 0.3, top + 4], [x + w / 2, H]], 'rgba(20,90,120,0.35)', g);
-      g.fillStyle = 'rgba(120,200,220,0.12)'; g.fillRect(Math.round(x - w * 0.1), Math.round(top), 2, Math.round(H - top));
-    }
-    // glow above spikes
-    for (let i = 0; i < 18; i++) { g.fillStyle = `rgba(226,69,60,${0.012 * (18 - i)})`; g.fillRect(0, H - 30 - i * 2, W, 2); }
-    // back spike row
-    const by = H - 16;
-    for (let x = -4; x < W + 8; x += 9) {
-      const h = 10 + Math.round(hash(x + 999) * 5);
-      spike(g, x + 4, by, 8, h, '#5a6676', '#3b4555', '#9b2c2c');
-    }
-    g.fillStyle = '#1a1f2b'; g.fillRect(0, by, W, 16);
-    // foreground spikes (drawn over falling players)
-    fg = document.createElement('canvas'); fg.width = W; fg.height = 30;
-    const f = fg.getContext('2d');
-    for (let x = -2; x < W + 12; x += 12) {
-      const h = 15 + Math.round(hash(x + 31) * 7);
-      spike(f, x + 6, 26, 11, h, '#d4dde8', '#7d8b9c', '#e2453c');
-    }
-    f.fillStyle = '#2a3140'; f.fillRect(0, 25, W, 5);
-    f.fillStyle = '#3a4456'; f.fillRect(0, 25, W, 1);
+    // far reef silhouettes along the horizon
+    const branch = (x, y, a, len, d) => {
+      for (let k = 0; k < len; k++) { g.fillRect(Math.round(x), Math.round(y), 1, 1); x += Math.cos(a); y += Math.sin(a); }
+      if (d > 0) { branch(x, y, a - 0.45, len * 0.72, d - 1); branch(x, y, a + 0.4, len * 0.72, d - 1); }
+    };
+    g.fillStyle = '#0d3150';
+    for (let x = -10; x < W + 10; x += 34) branch(x + hash(x + 3) * 20, horizonY + 3, -Math.PI / 2 + (hash(x) - 0.5) * 0.3, 7 + hash(x + 9) * 7, 3);
+    for (let x = -8; x < W + 8; x += 13) ellipseRows(g, x + hash(x + 1) * 8, horizonY + 2, 5 + hash(x + 2) * 8, 3 + hash(x + 4) * 4, '#0f3555', x);
+    for (let x = -4; x < W + 4; x += 9) ellipseRows(g, x + hash(x + 5) * 6, horizonY + 4, 3 + hash(x + 6) * 5, 2 + hash(x + 7) * 2, '#123b5c', x + 50);
   }
   function spike(g, cx, baseY, w, h, lightC, darkC, tipC) {
     for (let i = 0; i < h; i++) {
@@ -210,34 +217,71 @@ window.Scene = (() => {
       const ww = Math.max(1, Math.round((w * (i + 1)) / h));
       const x0 = Math.round(cx - ww / 2);
       const half = Math.ceil(ww / 2);
-      g.fillStyle = i < 3 ? tipC : lightC; g.fillRect(x0, y, half, 1);
-      g.fillStyle = i < 3 ? mix(tipC, 'k', 0.3) : darkC; g.fillRect(x0 + half, y, ww - half, 1);
+      g.fillStyle = i < 2 ? tipC : lightC; g.fillRect(x0, y, half, 1);
+      g.fillStyle = i < 2 ? mix(tipC, 'k', 0.3) : darkC; g.fillRect(x0 + half, y, ww - half, 1);
     }
   }
+  // Spike pit in the middle of the ring (where knocked-out players fall).
+  const pit = { c: null, r: 0, ry: 0, x: 0, y: 0, tx: 0, ty: 0, placed: false };
+  function buildPit(r, ry) {
+    r = Math.round(r); ry = Math.max(6, Math.round(ry));
+    const w = r * 2 + 12, h = ry * 2 + 12;
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d');
+    const cx = w / 2, cy = h / 2;
+    ellipseRows(g, cx + 1, cy + 3, r + 5, ry + 3, 'rgba(5,15,30,0.35)');
+    ellipseRows(g, cx, cy + 1, r + 4, ry + 3, '#3b4555', 7);
+    ellipseRows(g, cx, cy, r + 3, ry + 2, '#6b7a8f', 7);
+    ellipseRows(g, cx, cy - 1, r + 1, ry + 1, '#8796ab', 9);
+    ellipseRows(g, cx, cy, r, ry, '#2b3445');
+    g.save();
+    g.beginPath(); g.ellipse(cx, cy, r, ry, 0, 0, Math.PI * 2); g.clip();
+    ellipseRows(g, cx, cy + Math.max(3, ry * 0.35), r, ry, '#05080f');
+    ellipseRows(g, cx, cy + ry * 0.5, r * 0.8, ry * 0.6, 'rgba(226,69,60,0.22)');
+    const rows = 4;
+    for (let j = 0; j < rows; j++) {
+      const yrow = cy - ry * 0.2 + (j / (rows - 1)) * ry * 1.05;
+      const front = j / (rows - 1);
+      const sw = 4 + Math.round(front * 3), sh = 5 + Math.round(front * 4);
+      const half = r * Math.sqrt(Math.max(0, 1 - Math.pow((yrow - cy) / ry, 2)));
+      for (let x = cx - half + sw / 2 + ((j % 2) * sw) / 2; x < cx + half - 1; x += sw + 1) {
+        if (front > 0.5) spike(g, x, yrow + 2, sw, sh, '#d4dde8', '#7d8b9c', '#e2453c');
+        else spike(g, x, yrow + 2, sw, sh, '#7d8b9c', '#4a566b', '#b33a3a');
+      }
+    }
+    g.restore();
+    return c;
+  }
 
-  // ---------- Layout ----------
+  // ---------- Layout: players on a ring around the pit, you at the bottom ----------
+  let ring = { cx: 0, cy: 0, rx: 80, ry: 30 };
   function layout() {
     const list = [...ents.values()].filter((e) => !e.leaving);
     const n = list.length;
     const areaW = W - insetR / SCALE;
     const areaH = H - insetB / SCALE;
-    const cx = areaW / 2;
-    VX = cx;
-    if (!n) return;
-    const frontY = Math.min(areaH - 34, Math.round(H * 0.68));
-    let perRow = clamp(Math.floor((areaW - 16) / 56), 1, n);
-    const rows = Math.ceil(n / perRow);
-    perRow = Math.ceil(n / rows);
-    const spacing = Math.min(84, (areaW - 16) / perRow);
-    const rowGap = rows > 1 ? Math.min(58, Math.max(30, (frontY - 92) / (rows - 1))) : 0;
-    list.forEach((e, k) => {
-      const r = Math.floor(k / perRow);
-      const inRow = Math.min(perRow, n - r * perRow);
-      const i = k % perRow;
-      const jitter = (hash(strHash(e.id)) - 0.5) * 8;
-      e.tx = cx + (i - (inRow - 1) / 2) * spacing + (r % 2 ? spacing / 4 : 0);
-      e.ty = frontY - r * rowGap + (n > 1 ? jitter : 0);
+    const top = horizonY + 44, bottom = areaH - 22;
+    const ry = Math.max(16, (bottom - top) / 2);
+    const rx = Math.max(40, Math.min(areaW / 2 - 50, ry * 2.6));
+    ring = { cx: areaW / 2, cy: (top + bottom) / 2, rx, ry };
+    VX = ring.cx;
+    const meIdx = list.findIndex((e) => e.isMe);
+    const ordered = meIdx > 0 ? [...list.slice(meIdx), ...list.slice(0, meIdx)] : list;
+    const two = n > 12;
+    const outerN = two ? Math.ceil(n * 0.6) : n;
+    ordered.forEach((e, k) => {
+      const inner = k >= outerN;
+      const cnt = inner ? n - outerN : outerN;
+      const i = inner ? k - outerN : k;
+      const sc = inner ? 0.58 : 1;
+      const a = Math.PI / 2 + (Math.PI * 2 * i) / cnt + (inner ? Math.PI / cnt : 0);
+      e.tx = ring.cx + Math.cos(a) * rx * sc;
+      e.ty = ring.cy + Math.sin(a) * ry * sc;
     });
+    const pr = clamp((two ? rx * 0.58 : rx) * 0.3, 16, 52);
+    if (!pit.c || Math.abs(pit.r - pr) > 1.5) { pit.r = pr; pit.ry = Math.max(6, Math.round(pr * (ry / rx))); pit.c = buildPit(pr, pit.ry); }
+    pit.tx = ring.cx; pit.ty = ring.cy;
+    if (!pit.placed) { pit.x = pit.tx; pit.y = pit.ty; pit.placed = true; }
   }
 
   function setPlayers(list, opts = {}) {
@@ -269,7 +313,7 @@ window.Scene = (() => {
     }
   }
   function floatText(x, y, str, color, size = 8) { texts.push({ x, y, str, color, size, t0: now(), dur: 1100 }); }
-  function standY(e) { return e.y - 4; }
+  function standY(e) { return e.y + 1; }
   function fishHome(e) { return { x: e.x, y: standY(e) - 46 }; }
 
   function fishDrop(id) {
@@ -318,7 +362,7 @@ window.Scene = (() => {
       const idx = Math.max(0, (e.lives || 1) - 1);
       const hx = heartX(e, idx), hy = standY(e) - 28;
       heartBits.push({ x: hx, y: hy, vx: -30, vy: -60, t0: now(), half: 0 }, { x: hx + 4, y: hy, vx: 30, vy: -60, t0: now(), half: 1 });
-      if (out) e.fall = { t0: now() + 450, y: 0, vy: -150, landed: false };
+      if (out) e.fall = { t0: now() + 450, dur: 650, sink: 450, landed: false };
     }
   }
   function celebrate(id) { winnerId = id; celebrateUntil = now() + 5000; }
@@ -335,7 +379,7 @@ window.Scene = (() => {
     let best = null;
     for (const e of ents.values()) {
       if (e.leaving || e.out || e.gone || e.isMe) continue;
-      if (x > e.x - 24 && x < e.x + 24 && y > standY(e) - 40 && y < e.y + 18) best = e;
+      if (x > e.x - 22 && x < e.x + 22 && y > standY(e) - 40 && y < e.y + 16) best = e;
     }
     return best;
   }
@@ -356,38 +400,23 @@ window.Scene = (() => {
 
   // ---------- Drawing ----------
   function drawPlatform(e, x, y, alpha, highlight) {
-    const w = 40, d = 8, h = 7, k = 0.94;
-    const L = x - w / 2, R = x + w / 2;
-    const Lb = VX + (L - VX) * k, Rb = VX + (R - VX) * k;
+    const rx = 17, ry = 7, side = 6;
+    const dim = e.gone || e.out;
     ctx.globalAlpha = alpha;
-    // underside (rocky taper)
-    const off = (hash(e.seed) - 0.5) * 6;
-    for (let i = 0; i < 14; i++) {
-      const t = i / 14;
-      const hw = (w / 2 - 1) * Math.pow(1 - t, 0.9) + (hash(e.seed + i) - 0.5) * 3;
-      if (hw < 0.5) continue;
-      const cxr = x + off * t;
-      rect(i < 2 ? '#3d4759' : t < 0.5 ? '#2f3747' : '#252c3a', cxr - hw, y + h + i, hw * 2, 1);
-      rect('#4a566b', cxr - hw, y + h + i, 1, 1);
+    ellipseRows(ctx, x + 2, y + side + 3, rx + 3, ry + 1, 'rgba(5,15,30,0.4)');
+    ellipseRows(ctx, x, y + side, rx, ry, '#2f3747', e.seed);
+    rect('#465166', x - rx, y, rx * 2, side);
+    rect('#56627a', x - rx, y, 3, side);
+    rect('#3a4456', x + rx - 3, y, 3, side);
+    for (let j = 0; j < 7; j++) rect('#3a4456', x - rx + 3 + hash(e.seed + j) * (rx * 2 - 6), y + 1 + Math.floor(hash(e.seed + 20 + j) * (side + 2)), 1, 2);
+    if (highlight) ellipseRows(ctx, x, y, rx + 2, ry + 2, '#ffd166');
+    ellipseRows(ctx, x, y, rx, ry, dim ? '#3f6b63' : '#2f8f73', e.seed);
+    ellipseRows(ctx, x - 1, y - 1, rx - 3, ry - 2, dim ? '#4f7d74' : '#3fae8c', e.seed + 3);
+    rect(dim ? '#5f8f85' : '#6fd6ad', x - rx * 0.55, y - ry, rx * 1.1, 1);
+    for (let j = 0; j < 8; j++) {
+      const a = hash(e.seed + 50 + j) * Math.PI * 2, d = hash(e.seed + 70 + j) * 0.8;
+      rect(j % 2 ? '#2b7d66' : '#5cc79f', x + Math.cos(a) * rx * d, y + Math.sin(a) * ry * d, 1, 1);
     }
-    // side face
-    if (R < VX - 2) fillPoly(null, [[R, y], [Rb, y - d], [Rb, y - d + h], [R, y + h]], '#465166');
-    if (L > VX + 2) fillPoly(null, [[L, y], [Lb, y - d], [Lb, y - d + h], [L, y + h]], '#465166');
-    // highlight ring
-    if (highlight) fillPoly(null, [[L - 2, y + 1], [R + 2, y + 1], [Rb + 2, y - d - 2], [Lb - 2, y - d - 2]], '#ffd166');
-    // top face
-    fillPoly(null, [[L, y], [R, y], [Rb, y - d], [Lb, y - d]], e.gone || e.out ? '#4f7d74' : '#3fae8c');
-    rect('#6fd6ad', Lb + 1, y - d, Rb - Lb - 2, 1);
-    for (let j = 0; j < 6; j++) {
-      const px = L + 3 + hash(e.seed + 50 + j) * (w - 6), py = y - 1 - Math.floor(hash(e.seed + 70 + j) * (d - 2));
-      rect(j % 2 ? '#2b7d66' : '#5cc79f', px, py, 1, 1);
-    }
-    // front face
-    rect('#6b7a8f', L, y, w, h);
-    rect('#8796ab', L, y, w, 1);
-    rect('#55627a', L, y + 3, w, 1);
-    for (let j = 0; j < 4; j++) { const sx = L + 5 + j * 10 + (hash(e.seed + j) * 3 | 0); rect('#55627a', sx, y + 1, 1, 2); rect('#55627a', sx + 5, y + 4, 1, 3); }
-    rect('#4a566b', L, y + h - 1, w, 1);
     ctx.globalAlpha = 1;
   }
 
@@ -431,23 +460,43 @@ window.Scene = (() => {
     return r;
   }
 
+  function drawPit(t) {
+    ctx.drawImage(pit.c, Math.round(pit.x - pit.c.width / 2), Math.round(pit.y - pit.c.height / 2));
+    for (const e of ents.values()) {
+      const f = e.fall;
+      if (!f || f.landed || t < f.t0) continue;
+      const p = clamp((t - f.t0) / f.dur, 0, 1);
+      const sx = e.x, sy = standY(e), ex = pit.x, ey = pit.y - 1;
+      if (p < 1) {
+        const q = easeInOut(p);
+        drawCharacter(ctx, lerp(sx, ex, q), lerp(sy, ey, q) - 34 * 4 * q * (1 - q), e.look, { flash: Math.floor(t / 80) % 2 === 0 });
+      } else {
+        const q = clamp((t - f.t0 - f.dur) / f.sink, 0, 1);
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(0, 0, W, Math.round(pit.y));
+        ctx.ellipse(Math.round(pit.x), Math.round(pit.y), pit.r, pit.ry, 0, 0, Math.PI * 2);
+        ctx.clip();
+        drawCharacter(ctx, ex, ey + easeOutCubic(q) * 24, e.look, { flash: true });
+        ctx.restore();
+      }
+    }
+  }
+
   function update(dt, t) {
     const k = 1 - Math.exp(-dt / 0.12);
     for (const e of ents.values()) {
       e.x = lerp(e.x, e.tx, k); e.y = lerp(e.y, e.ty, k);
       if (e.leaving && t - e.appearT0 > 350) ents.delete(e.id);
-      if (e.fall && t > e.fall.t0 && !e.fall.landed) {
-        e.fall.vy += 420 * dt; e.fall.y += e.fall.vy * dt;
-        if (standY(e) + e.fall.y > H - 22) {
-          e.fall.landed = true; e.ghost = true;
-          const px = e.x, py = H - 22;
-          burst(px, py, 26, ['#d4dde8', '#ffffff', '#9aa7b8'], 90, 2, 140);
-          burst(px, py, 10, ['#e2453c'], 60);
-          floatText(px, py - 24, 'OUT!', '#ff5d5d', 16);
-          shake = Math.max(shake, 5);
-        }
+      if (e.fall && !e.fall.landed && t > e.fall.t0 + e.fall.dur + e.fall.sink) {
+        e.fall.landed = true; e.ghost = true;
+        burst(pit.x, pit.y, 26, ['#d4dde8', '#ffffff', '#9aa7b8'], 80, 2, 120);
+        burst(pit.x, pit.y, 10, ['#e2453c'], 60);
+        floatText(pit.x, pit.y - 30, 'OUT!', '#ff5d5d', 16);
+        shake = Math.max(shake, 5);
       }
     }
+    pit.x = lerp(pit.x, pit.tx, k); pit.y = lerp(pit.y, pit.ty, k);
     // fish motion
     if (fish.mode === 'drop' || fish.mode === 'throw') {
       const e = ents.get(fish.to);
@@ -512,15 +561,18 @@ window.Scene = (() => {
     ctx.setTransform(1, 0, 0, 1, sx, sy);
 
     const inGame = phase === 'intro' || phase === 'play' || phase === 'pop' || phase === 'over';
-    const list = [...ents.values()].sort((a, b) => a.y - b.y);
-    for (const e of list) {
+    const items = [...ents.values()];
+    if (pit.c) items.push({ isPit: true, y: pit.y });
+    items.sort((a, b) => a.y - b.y);
+    for (const e of items) {
+      if (e.isPit) { drawPit(t); continue; }
       const p = clamp((t - e.appearT0) / 550, 0, 1);
       const appear = e.leaving ? 1 - clamp((t - e.appearT0) / 350, 0, 1) : easeOutBack(p);
-      const x = Math.round(e.x), y = Math.round(e.y + (1 - appear) * 50);
+      const x = Math.round(e.x), y = Math.round(e.y + (1 - appear) * 24);
       const alpha = clamp(e.leaving ? appear : p * 2, 0, 1) * (e.gone ? 0.5 : 1);
       const hl = aim.on && aim.hover === e && Math.floor(t / 150) % 2 === 0;
       drawPlatform(e, x, y, alpha, hl);
-      const sY = y - 4;
+      const sY = y + 1;
       // shadow
       ctx.globalAlpha = 0.35 * alpha; rect('#0b2a26', x - 6, sY - 1, 12, 2); ctx.globalAlpha = 1;
       // character
@@ -529,7 +581,7 @@ window.Scene = (() => {
         ctx.globalAlpha = 0.4 * alpha;
         drawCharacter(ctx, x, sY - 3 + Math.round(Math.sin(t / 400 + e.seed) * 2), e.look, {});
       } else if (e.fall && t > e.fall.t0 && !e.fall.landed) {
-        drawCharacter(ctx, x, sY + e.fall.y, e.look, { flash: Math.floor(t / 80) % 2 === 0 });
+        // drawn by drawPit (flies into the spike pit)
       } else {
         let bob = Math.floor((t + e.seed % 900) / 450) % 2;
         if (t - e.catchAt < 160) bob = -1;
@@ -551,12 +603,10 @@ window.Scene = (() => {
         drawMap(['yyyyy', '.yyy.', '..y..'], x - 2, sY - 24 - b);
       }
       // name
-      text(e.name || '', x, y + 9, e.isMe ? '#ffd166' : '#ffffff');
+      text(e.name || '', x, y + 15, e.isMe ? '#ffd166' : '#ffffff');
       ctx.globalAlpha = 1;
     }
 
-    // falling characters go behind the front spikes
-    ctx.drawImage(fg, 0, H - 30);
 
     // heart fragments
     for (const b of heartBits) {
@@ -635,6 +685,7 @@ window.Scene = (() => {
     for (let i = 0; i < Math.round(W / 9); i++) motes.push({ x: Math.random() * W, y: Math.random() * H, v: 4 + Math.random() * 8, p: Math.random() * 6, a: 0.2 + Math.random() * 0.4 });
     layout();
     for (const e of ents.values()) { e.x = e.tx; e.y = e.ty; }
+    pit.x = pit.tx; pit.y = pit.ty;
   }
 
   function init(canvas) {
