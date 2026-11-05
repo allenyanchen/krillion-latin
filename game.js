@@ -289,6 +289,45 @@
 
   function act(msg) { transport.send({ ...msg, from: me.id }); }
 
+  // ---------- "fah" (plays for everyone when someone loses a heart) ----------
+  // Replace sounds/fah.wav with any clip you like; the word lasts as long as the sound.
+  const Fah = {
+    audio: null, raf: 0, unlocked: false,
+    init() {
+      this.audio = new Audio('sounds/fah.wav');
+      this.audio.preload = 'auto';
+      // Browsers only allow sound after a click, so unlock it on the first one.
+      const unlock = () => {
+        if (this.unlocked) return;
+        this.unlocked = true;
+        const a = this.audio; a.muted = true;
+        a.play().then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; });
+      };
+      window.addEventListener('pointerdown', unlock, { once: true });
+      window.addEventListener('keydown', unlock, { once: true });
+    },
+    play() {
+      const a = this.audio;
+      let dur = a && isFinite(a.duration) && a.duration > 0 ? a.duration : 1.7;
+      if (a) { try { a.currentTime = 0; a.muted = false; a.play().catch(() => {}); } catch (e) {} }
+      this.show(dur);
+    },
+    show(dur) {
+      const el = $('#fah');
+      cancelAnimationFrame(this.raf);
+      el.hidden = false;
+      const t0 = performance.now();
+      const step = () => {
+        const p = Math.min(1, (performance.now() - t0) / (dur * 1000));
+        el.textContent = 'fa' + 'h'.repeat(1 + Math.floor(p * 7));
+        el.style.transform = `translate(-50%, -50%) scale(${0.55 + p * 0.95}) rotate(${Math.sin(p * 18) * 2.5}deg)`;
+        el.style.opacity = p < 0.06 ? p / 0.06 : p > 0.7 ? (1 - p) / 0.3 : 1;
+        if (p < 1) this.raf = requestAnimationFrame(step); else el.hidden = true;
+      };
+      step();
+    },
+  };
+
   // ---------- State → UI ----------
   function onState(s) {
     S = s;
@@ -317,7 +356,7 @@
         if (ev.id === me.id) { const c = $('#turnCard'); c.classList.remove('shake'); void c.offsetWidth; c.classList.add('shake'); }
         break;
       case 'right': Scene.right(ev.id); break;
-      case 'pop': Scene.pop(ev.id, ev.out); break;
+      case 'pop': Scene.pop(ev.id, ev.out); Fah.play(); break;
       case 'win': Scene.celebrate(ev.id); break;
     }
   }
@@ -519,6 +558,7 @@
   if (roomParam) $('#codeIn').value = roomParam.toUpperCase().slice(0, 4);
   $('#modeNote').innerHTML = ONLINE ? '🌐 Online multiplayer ready' : '🧪 Local test mode: rooms only work between tabs in this browser.';
   Scene.init($('#scene'));
+  Fah.init();
   buildCustomizer();
   renderUI();
   if (document.fonts) document.fonts.ready.then(() => updateInsets());

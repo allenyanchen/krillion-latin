@@ -16,7 +16,7 @@ A 2D pixel-art seafloor seen from an angled top-down view. Players stand on moss
 5. **Only the holder sees the question.** Everyone else just sees "Gaius is answering…".
 6. **Correct:** +100 points. Then the holder aims with the mouse (a dotted arc follows the cursor) and clicks a player to **throw** the fish.
 7. **Wrong:** a red **−4s** floats up, the fish puffs, and the holder sees the right answer plus a new question.
-8. The fish shows its **countdown** and swells and turns red as time runs low. **The timer resets for every new holder**, starting at 30 s and getting 1.5 s shorter each turn, down to a minimum of **5 s**. Whenever someone loses a heart, it goes back to 30 s. When it hits 0 it **POPs** and the holder loses a heart.
+8. The fish shows its **countdown** and swells and turns red as time runs low. **The timer resets for every new holder**, starting at 30 s and getting 1.5 s shorter each turn, down to a minimum of **5 s**. Whenever someone loses a heart, it goes back to 30 s. When it hits 0 it **POPs** and the holder loses a heart. Everyone hears a **"fah"** sound, and the word *fah → fahh → fahhh…* pops up, grows, and fades as long as the sound lasts. To use a different clip, replace `sounds/fah.wav`.
 9. When a player loses their last heart, they leap into the spike pit and come back as a ghost to watch. The last player standing wins (confetti).
 
 The game needs **at least 2 players**, so it is multiplayer-only by design.
