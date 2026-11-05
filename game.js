@@ -289,28 +289,32 @@
 
   function act(msg) { transport.send({ ...msg, from: me.id }); }
 
-  // ---------- "fah" (plays for everyone when someone loses a heart) ----------
-  // Replace sounds/fah.wav with any clip you like; the word lasts as long as the sound.
+  // ---------- "fahh" + vine boom (plays for everyone when someone loses a heart) ----------
+  // The word lasts as long as sounds/faaah.mp3.
   const Fah = {
-    audio: null, raf: 0, unlocked: false,
+    fah: null, boom: null, raf: 0, unlocked: false,
     init() {
-      this.audio = new Audio('sounds/fah.wav');
-      this.audio.preload = 'auto';
-      // Browsers only allow sound after a click, so unlock it on the first one.
+      this.fah = new Audio('sounds/faaah.mp3');
+      this.boom = new Audio('sounds/vine-boom.mp3');
+      for (const a of [this.fah, this.boom]) a.preload = 'auto';
+      // Browsers only allow sound after a click, so unlock both on the first one.
       const unlock = () => {
         if (this.unlocked) return;
         this.unlocked = true;
-        const a = this.audio; a.muted = true;
-        a.play().then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; });
+        for (const a of [this.fah, this.boom]) {
+          a.muted = true;
+          a.play().then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; });
+        }
       };
       window.addEventListener('pointerdown', unlock, { once: true });
       window.addEventListener('keydown', unlock, { once: true });
     },
     play() {
-      const a = this.audio;
-      let dur = a && isFinite(a.duration) && a.duration > 0 ? a.duration : 1.7;
-      if (a) { try { a.currentTime = 0; a.muted = false; a.play().catch(() => {}); } catch (e) {} }
-      this.show(dur);
+      for (const a of [this.fah, this.boom]) {
+        try { a.currentTime = 0; a.muted = false; a.play().catch(() => {}); } catch (e) {}
+      }
+      const d = this.fah.duration;
+      this.show(isFinite(d) && d > 0 ? d : 2);
     },
     show(dur) {
       const el = $('#fah');
