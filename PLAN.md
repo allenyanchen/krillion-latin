@@ -5,18 +5,26 @@ Krillion Latin is a classroom game site with exactly **one** game mode: **Puffer
 
 It's hot potato with a pufferfish. Whoever holds the fish has to **type** the correct Latin subjunctive form (no multiple choice). The fish gets bigger the longer a round goes on, and nobody knows exactly when it will pop.
 
+### The scene
+A 2D pixel-art underwater cavern with a 3D look: floating stone platforms drawn in perspective, with **death spikes** along the bottom. When you load the site you're standing on your own platform. A side panel lets you host, join, and customize your character.
+
 ### Rules
-1. The host creates a room and gets a 4-letter code. Everyone else joins with that code, or with the invite link.
-2. The game needs **at least 2 players**, so it is multiplayer-only by design.
-3. A random player starts with the pufferfish and gets a question, e.g. *"Form the present passive subjunctive of **mitteris**"*.
-4. **Correct answer:** +100 points, then tap any other player to pass the fish to them.
-5. **Wrong answer:** the correct form is shown, the fuse loses 4 seconds, and you get a new question. You still hold the fish.
-6. Each round's fuse is a hidden 25–40 seconds. When it runs out, the fish **POPs** and whoever is holding it loses a life.
-7. A player with 0 lives is out but can keep watching. The last player standing wins. Points break ties.
+1. **Host** creates a room and gets a 4-letter code. Each player who joins gets a new platform, which rises into the scene.
+2. Before the game starts, everyone can **customize** their character's color, hat (laurel, crown, cap, Roman galea, wizard, bow) and eyes. Changes show up live for everyone.
+3. The host chooses whether they're **playing too** or just running the game.
+4. When the host presses **Play**, hearts pop in above every player and the pufferfish **drops from above** onto a random player.
+5. **Only the holder sees the question.** Everyone else just sees "Gaius is answering…".
+6. **Correct:** +100 points. Then the holder aims with the mouse (a dotted arc follows the cursor) and clicks a player to **throw** the fish.
+7. **Wrong:** a red **−4s** floats up, the fish puffs, and the holder sees the right answer plus a new question.
+8. The fish shows its **countdown** (25–40 s per round) and swells and turns red as time runs low. When it hits 0 it **POPs** and the holder loses a heart.
+9. When a player loses their last heart, they fall off their platform into the spikes and come back as a ghost to watch. The last player standing wins (confetti).
+
+The game needs **at least 2 players**, so it is multiplayer-only by design.
 
 ### Host settings
 - Question set: Present (48), Imperfect (44), or Both (92).
-- Lives per player: 1–5 (default 3).
+- Hearts per player: 1–5 (default 3).
+- "I'm playing too" toggle.
 
 ## Questions
 Transcribed from the two Blooket PDFs into `questions.js`:
@@ -51,9 +59,10 @@ Answers worth a teacher double-check, since the source wording is unusual:
 ## Files
 | File | What it does |
 |---|---|
-| `index.html` | Page layout: home, lobby, game, and game-over screens |
-| `style.css` | Underwater theme |
-| `game.js` | Game logic, the host-run game, Supabase and local connections, the pufferfish animation |
+| `index.html` | Canvas plus UI overlays: side panel, question card, HUD, game-over screen |
+| `style.css` | Pixel-style UI panels and animations |
+| `scene.js` | Pixel renderer: platforms, characters, hats, hearts, pufferfish, throws, particles |
+| `game.js` | The host-run game logic, Supabase and local connections, UI wiring |
 | `questions.js` | Subjunctive Set question bank (92 questions) |
 | `config.js` | Your Supabase URL and key go here |
 

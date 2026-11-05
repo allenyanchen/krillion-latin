@@ -2,113 +2,108 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Krillion Latin · Pufferfish Party</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐡</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&family=Silkscreen&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="config.js"></script>
   <script src="questions.js"></script>
+  <script src="scene.js" defer></script>
   <script src="game.js" defer></script>
 </head>
-<body>
-  <div class="bubbles" aria-hidden="true"></div>
+<body data-view="home">
+  <canvas id="scene" aria-label="Game scene"></canvas>
 
-  <!-- HOME -->
-  <section id="home" class="screen active">
-    <h1 class="logo">Krillion <span>Latin</span></h1>
-    <div class="card mode-card">
-      <div class="mode-tag">Only game mode</div>
-      <h2>🐡 Pufferfish Party</h2>
-      <p class="mode-sub">Subjunctive Set</p>
-      <p>Whoever holds the pufferfish must type the correct Latin subjunctive. Get it right, then pass the fish. Get it wrong and it puffs up faster. Holding it when it pops costs you a life.</p>
-    </div>
-    <div class="card form-card">
-      <label>Your name <input id="nameIn" maxlength="16" autocomplete="off" placeholder="e.g. Marcus"></label>
-      <button id="createBtn" class="btn primary">Host a new room</button>
-      <div class="or">or join one</div>
-      <div class="row">
-        <input id="codeIn" maxlength="4" autocomplete="off" placeholder="CODE" class="code-in">
+  <!-- Side panel: home + lobby -->
+  <aside id="panel" class="panel">
+    <header class="brand">
+      <h1>Krillion <span>Latin</span></h1>
+      <p>🐡 Pufferfish Party · <b>Subjunctive Set</b></p>
+    </header>
+
+    <section class="only-home">
+      <label class="lbl" for="nameIn">Your name</label>
+      <input id="nameIn" maxlength="14" autocomplete="off" placeholder="e.g. Marcus">
+      <button id="hostBtn" class="btn primary">Host a game</button>
+      <div class="join">
+        <input id="codeIn" maxlength="4" autocomplete="off" placeholder="CODE" class="code-in" aria-label="Room code">
         <button id="joinBtn" class="btn">Join</button>
       </div>
       <p id="modeNote" class="note"></p>
-    </div>
-  </section>
+    </section>
 
-  <!-- LOBBY -->
-  <section id="lobby" class="screen">
-    <div class="card">
-      <p class="muted">Room code</p>
-      <div id="lobbyCode" class="big-code">----</div>
-      <button id="copyLink" class="btn small">Copy invite link</button>
-    </div>
-    <div class="card">
-      <h3>Players <span id="pCount"></span></h3>
-      <ul id="lobbyPlayers" class="chips"></ul>
-    </div>
-    <div id="hostOpts" class="card">
-      <h3>Host settings</h3>
-      <label>Question set
-        <select id="setSel">
-          <option value="both">Both sets (92 questions)</option>
-          <option value="present">Present subjunctive (48)</option>
-          <option value="imperfect">Imperfect subjunctive (44)</option>
-        </select>
-      </label>
-      <label>Lives per player
-        <select id="livesSel">
-          <option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option>
-        </select>
-      </label>
-      <button id="startBtn" class="btn primary">Start the party</button>
-      <p id="startHint" class="note"></p>
-    </div>
-    <div id="guestWait" class="card"><p>Waiting for the host to start…</p></div>
-  </section>
-
-  <!-- GAME -->
-  <section id="game" class="screen">
-    <header class="hud">
-      <span id="hudRound"></span>
-      <span id="hudSet"></span>
-      <span id="hudCode"></span>
-    </header>
-    <div class="arena">
-      <div class="stage">
-        <div id="holderLabel" class="holder-label"></div>
-        <div id="pufferWrap" class="puffer-wrap"></div>
-        <div id="turnBox" class="card turn">
-          <div id="qPrompt" class="q-prompt"></div>
-          <form id="answerForm" class="row">
-            <input id="answerIn" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type the Latin…">
-            <button class="btn primary">Submit</button>
-          </form>
-          <div id="passBox" class="pass-box">✅ Correct! Tap a player to pass the pufferfish →</div>
-          <div id="feedback" class="feedback"></div>
-        </div>
+    <section class="only-lobby">
+      <div class="code-box">
+        <span class="lbl">Room code</span>
+        <div id="lobbyCode" class="big-code">----</div>
+        <button id="copyLink" class="btn small">Copy invite link</button>
       </div>
-      <aside class="side">
-        <ul id="plist" class="plist"></ul>
-        <ul id="feed" class="feed"></ul>
-      </aside>
-    </div>
-  </section>
+      <p class="players-line"><b id="pCount">0</b> on the platforms</p>
+      <div id="hostSettings">
+        <label class="lbl">Question set
+          <select id="setSel">
+            <option value="both">Both sets (92)</option>
+            <option value="present">Present subjunctive (48)</option>
+            <option value="imperfect">Imperfect subjunctive (44)</option>
+          </select>
+        </label>
+        <label class="lbl">Hearts per player
+          <select id="livesSel"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option></select>
+        </label>
+        <label class="toggle"><input type="checkbox" id="playToggle" checked><span></span>I'm playing too</label>
+        <button id="startBtn" class="btn primary">▶ Play</button>
+        <p id="startHint" class="note"></p>
+      </div>
+      <p id="guestWait" class="wait">Waiting for the host to press play<span class="dots"></span></p>
+    </section>
 
-  <!-- GAME OVER -->
-  <section id="over" class="screen">
-    <div class="card center">
+    <section class="custom">
+      <div class="custom-head">
+        <canvas id="preview" width="22" height="26"></canvas>
+        <div><h2>Customize</h2><p class="note">Your look shows up on your platform.</p></div>
+      </div>
+      <span class="lbl">Color</span>
+      <div id="colorRow" class="swatches"></div>
+      <span class="lbl">Hat</span>
+      <div id="hatRow" class="opts"></div>
+      <span class="lbl">Eyes</span>
+      <div id="eyeRow" class="opts"></div>
+    </section>
+  </aside>
+
+  <!-- In-game HUD -->
+  <div id="hud" class="hud">
+    <div id="hudInfo" class="hud-info"></div>
+    <ul id="feed" class="feed"></ul>
+  </div>
+  <div id="statusPill" class="pill" hidden></div>
+  <div id="aimHint" class="pill aim" hidden></div>
+
+  <div id="turnCard" class="turn" hidden>
+    <div class="turn-top"><span class="tag">Your turn!</span><span id="qKind" class="kind"></span></div>
+    <div class="q">Form the subjunctive of <b id="qVerb"></b></div>
+    <form id="answerForm" class="answer">
+      <input id="answerIn" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type the Latin…">
+      <button class="btn primary">Throw it in!</button>
+    </form>
+    <div id="feedback" class="feedback"></div>
+  </div>
+
+  <div id="overModal" class="modal" hidden>
+    <div class="modal-card">
       <div class="trophy">🏆</div>
       <h2 id="winnerName"></h2>
-      <p class="muted">survived the Pufferfish Party</p>
+      <p class="note">survived the Pufferfish Party</p>
       <ol id="standings" class="standings"></ol>
       <button id="againBtn" class="btn primary">Back to lobby</button>
       <p id="againWait" class="note">Waiting for the host…</p>
     </div>
-  </section>
+  </div>
 
-  <div id="popOverlay" class="pop-overlay"><div><div class="pop-word">POP!</div><div id="popName"></div></div></div>
-  <div id="toast" class="toast"></div>
+  <div id="toast" class="toast" hidden></div>
 </body>
 </html>
