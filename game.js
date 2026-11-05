@@ -289,10 +289,9 @@
 
   function act(msg) { transport.send({ ...msg, from: me.id }); }
 
-  // ---------- Background music (loops; the scene pulses on every beat) ----------
+  // ---------- Background music (loops quietly) ----------
   const Music = {
-    SRC: 'sounds/the_mountain-retro-game-593063.mp3?v=202611051340',
-    BPM: 110, FIRST_BEAT: 0.287, // measured from the track
+    SRC: 'sounds/the_mountain-retro-game-593063.mp3?v=202611051345',
     VOL: 0.12, DUCK_VOL: 0.04,   // quiet, and quieter still while fahh plays
     el: null, fade: 0, duckTimer: null,
     init() {
@@ -301,13 +300,6 @@
       const start = () => a.play().catch(() => {});
       window.addEventListener('pointerdown', start, { once: true });
       window.addEventListener('keydown', start, { once: true });
-      Scene.setBeat(() => {
-        if (a.paused) return 0;
-        const period = 60 / this.BPM;
-        let ph = ((a.currentTime - this.FIRST_BEAT) / period) % 1;
-        if (ph < 0) ph += 1;
-        return Math.exp(-ph * 7);
-      });
     },
     rampTo(v, ms) {
       clearInterval(this.fade);
@@ -331,8 +323,8 @@
   const Fah = {
     fah: null, boom: null, raf: 0, unlocked: false,
     init() {
-      this.fah = new Audio('sounds/faaah.mp3?v=202611051340');
-      this.boom = new Audio('sounds/vine-boom.mp3?v=202611051340');
+      this.fah = new Audio('sounds/faaah.mp3?v=202611051345');
+      this.boom = new Audio('sounds/vine-boom.mp3?v=202611051345');
       for (const a of [this.fah, this.boom]) a.preload = 'auto';
       // Browsers only allow sound after a click, so unlock both on the first one.
       const unlock = () => {
