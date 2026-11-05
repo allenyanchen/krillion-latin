@@ -256,6 +256,7 @@
       if (p) {
         p.lives = Math.max(0, p.lives - 1);
         if (p.lives === 0) p.out = true;
+        this.turns = 0; // timer goes back to 30s after someone loses a heart
         this.log(`💥 POP! ${p.name} ${p.out ? 'is out!' : 'lost a heart'}`);
         this.ev('pop', { id: p.id, out: p.out });
       }
