@@ -133,7 +133,12 @@ window.Theme = (() => {
     return tokens;
   }
   function load() { try { return { ...DEFAULT, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch (e) { return { ...DEFAULT }; } }
-  function save(t) { try { localStorage.setItem(KEY, JSON.stringify(t)); } catch (e) {} return apply(t); }
+  function save(t, fromCloud = false) {
+    try { localStorage.setItem(KEY, JSON.stringify(t)); } catch (e) {}
+    const tokens = apply(t);
+    window.dispatchEvent(new CustomEvent('kl-theme', { detail: { theme: t, fromCloud } }));
+    return tokens;
+  }
 
   apply(load()); // before first paint
 

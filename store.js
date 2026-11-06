@@ -23,6 +23,7 @@
   let cloudStats = null;    // your stats from the database
   let cloudLoaded = false;
   let pushTimer = null;
+  let themeColumn = null;    // null = unknown, false = the profiles table has no theme column
 
   const rowToSet = (r) => ({ id: r.id, title: r.title, description: r.description || '', questions: r.questions || [], builtIn: false, createdAt: Date.parse(r.created_at), updatedAt: Date.parse(r.updated_at), cloud: true });
   const fail = (what, error) => { if (error) { console.warn(what, error); emit('error', `Couldn’t ${what}. Check your connection and try again.`); } };
@@ -32,7 +33,15 @@
     clearTimeout(pushTimer);
     pushTimer = setTimeout(async () => {
       const p = Store.profile();
-      const { error } = await SB.from('profiles').upsert({ id: user.id, name: p.name, look: p.look, stats: cloudStats || {}, updated_at: new Date().toISOString() });
+      const row = { id: user.id, name: p.name, look: p.look, stats: cloudStats || {}, updated_at: new Date().toISOString() };
+      if (themeColumn !== false) row.theme = Theme.load();
+      let { error } = await SB.from('profiles').upsert(row);
+      // If the profiles table has no theme column yet, keep syncing everything else.
+      if (error && row.theme && /theme/i.test(error.message || '') && /column|schema/i.test(error.message || '')) {
+        themeColumn = false; delete row.theme;
+        console.warn('Theme sync is off: add a "theme" column to the profiles table to sync themes.');
+        ({ error } = await SB.from('profiles').upsert(row));
+      } else if (!error && row.theme) themeColumn = true;
       fail('save your profile', error);
     }, 600);
   }
@@ -51,6 +60,11 @@
       if (prof.data.name) put('kl-name', prof.data.name);
       if (prof.data.look) put('kl-look', Scene.normLook(prof.data.look));
       cloudStats = { games: 0, wins: 0, correct: 0, ...(prof.data.stats || {}) };
+      if ('theme' in prof.data) {
+        themeColumn = true;
+        // Your account's theme wins on a new device; if the account has none yet, upload this browser's.
+        if (prof.data.theme && prof.data.theme.accent) Theme.save(prof.data.theme, true); else schedulePushProfile();
+      } else themeColumn = false;
     } else if (!prof.error) {
       // First sign-in: start the account from this browser's profile.
       const meta = u.user_metadata || {};
@@ -78,6 +92,9 @@
     return (h >>> 0).toString(36) + text.length;
   }
 
+  // Push theme changes to your account (Theme.save fires this event).
+  window.addEventListener('kl-theme', (e) => { if (!e.detail || !e.detail.fromCloud) schedulePushProfile(); });
+
   window.Store = {
     on(ev, fn) { (listeners[ev] = listeners[ev] || []).push(fn); },
 
@@ -85,6 +102,7 @@
     online: !!SB,
     user: () => user,
     cloudLoaded: () => cloudLoaded,
+    themeSync: () => themeColumn,
     signInGoogle() {
       return SB.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: homeUrl(), queryParams: { prompt: 'select_account' } } });
     },

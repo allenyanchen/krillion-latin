@@ -565,7 +565,8 @@
 
       <section class="card theme-card">
         <div class="theme-head">
-          <div><h2>Site theme</h2><p class="note">Pick a preset or build your own. Every color is generated from your accent, and text is automatically kept readable.</p></div>
+          <div><h2>Site theme</h2><p class="note">Pick a preset or build your own. Every color is generated from your accent, and text is automatically kept readable.</p>
+            <p class="note sync-line">${!u ? 'Saved in this browser. Sign in to sync it to your account.' : Store.themeSync() === false ? 'Saved in this browser. Account sync needs a <b>theme</b> column in Supabase.' : '☁ Synced to your account'}</p></div>
           <button class="btn small" id="tReset">Reset to default</button>
         </div>
         <span class="lbl">Presets</span>

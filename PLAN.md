@@ -34,6 +34,11 @@ A left sidebar (a bottom tab bar on phones) links to four pages.
 - **Moving browser sets:** whenever you're signed in, the site looks for sets saved in this browser that are valid and not already in your account (matched by content). If it finds any, it lists them so you can pick which to move. *Not now* remembers your choice, and the Sets page shows a *Review & move* banner so you can move them later.
 - **No account needed to play:** anyone can join a game with just a name.
 - **Privacy rules:** Row Level Security means each person can only read and change their own rows.
+- **Theme sync:** when signed in, your site theme is stored in `profiles.theme` and applied on any device. This needs one column, added once in the Supabase SQL Editor:
+  ```sql
+  alter table public.profiles add column if not exists theme jsonb;
+  ```
+  Without the column, everything else still syncs and the theme stays in the browser.
 
 ## The game page (full screen)
 - **Top bar:**
