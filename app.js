@@ -482,6 +482,7 @@
           </div>
           <p id="sErr" class="form-error" role="alert" hidden></p>
           <p class="note">You don’t need an account to join a game.</p>
+          <p class="note fine">By signing in you agree to the <a href="terms.html">Terms of Service</a> and <a href="privacy.html">Privacy Policy</a>.</p>
         </div>
       </div>`;
     $('[data-fish-big]', main).innerHTML = UI.fish('fish-art big');

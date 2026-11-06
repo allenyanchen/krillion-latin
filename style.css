@@ -472,6 +472,11 @@ h1, h2, h3, .btn, .nav a, .brand-text, .seg button, .tabs button, .g-btn, .g-tit
 .swatch.taken:hover { transform: none; }
 
 /* ---------- Account & sign-in ---------- */
+.side-legal { margin: -8px 0 0; text-align: center; font-size: .78rem; color: var(--dim); }
+.side-legal a, .note.fine a { color: var(--muted); text-decoration: underline; }
+.side-legal a:hover, .note.fine a:hover { color: var(--ink); }
+.note.fine { font-size: .8rem; color: var(--dim); }
+@media (max-width: 760px) { .side-legal { display: none; } }
 .mobile-acct { display: none; margin-top: 16px; }
 @media (max-width: 760px) { .mobile-acct { display: flex; } }
 .account { display: flex; flex-direction: column; gap: 4px; }

@@ -1,0 +1,20 @@
+:root { --bg: #091522; --panel: #10243a; --line: #234561; --edge: #040b14; --hi: #2b5576; --ink: #eaf6ff; --muted: #8fb0c7; --accent: #ffb238; --teal: #2ec4b6; color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: radial-gradient(rgba(120, 190, 230, .06) 1px, transparent 1.5px) 0 0 / 12px 12px, linear-gradient(180deg, #0b1b2d, var(--bg) 60%) fixed;
+  color: var(--ink); font-family: 'Nunito', system-ui, sans-serif; font-size: 17px; line-height: 1.6;
+}
+.legal { max-width: 760px; margin: 0 auto; padding: 32px 16px 56px; }
+.legal-brand { display: inline-flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; font-family: 'Pixelify Sans', sans-serif; font-weight: 700; font-size: 1.4rem; margin-bottom: 20px; }
+.legal-brand img { image-rendering: pixelated; }
+.legal-card { background: var(--panel); padding: 28px clamp(18px, 4vw, 36px); border-radius: 4px; box-shadow: 0 0 0 3px var(--edge), inset 0 3px 0 var(--hi), 0 6px 0 3px rgba(0, 0, 0, .3); }
+h1, h2 { font-family: 'Pixelify Sans', sans-serif; line-height: 1.2; }
+h1 { margin: 0 0 4px; font-size: 2.2rem; }
+h2 { margin: 28px 0 8px; font-size: 1.3rem; color: #ffd166; }
+.updated { color: var(--muted); margin-top: 0; }
+p, li { color: #d3e6f3; }
+ul { padding-left: 1.3em; }
+li { margin: 4px 0; }
+a { color: var(--teal); }
+.legal-links { text-align: center; color: var(--muted); margin-top: 20px; }
