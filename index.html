@@ -14,15 +14,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800&family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=202611052145">
+  <link rel="stylesheet" href="style.css?v=202611052201">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-  <script src="config.js?v=202611052145"></script>
-  <script src="questions.js?v=202611052145"></script>
-  <script src="scene.js?v=202611052145" defer></script>
-  <script src="store.js?v=202611052145" defer></script>
-  <script src="factory.js?v=202611052145" defer></script>
-  <script src="game.js?v=202611052145" defer></script>
-  <script src="app.js?v=202611052145" defer></script>
+  <script src="config.js?v=202611052201"></script>
+  <script src="questions.js?v=202611052201"></script>
+  <script src="scene.js?v=202611052201" defer></script>
+  <script src="store.js?v=202611052201" defer></script>
+  <script src="factory.js?v=202611052201" defer></script>
+  <script src="game.js?v=202611052201" defer></script>
+  <script src="app.js?v=202611052201" defer></script>
 </head>
 <body>
   <!-- ============ App shell (dashboard pages) ============ -->
@@ -62,7 +62,23 @@
       </div>
       <div id="fxPrompt" class="fx-prompt" hidden></div>
       <div id="fxBanner" class="fx-banner" role="status" hidden></div>
-      <div class="fx-keys-help">Move <kbd>A</kbd><kbd>D</kbd> / <kbd>←</kbd><kbd>→</kbd> · Use <kbd>E</kbd></div>
+      <div class="fx-keys-help">Move <kbd>A</kbd><kbd>D</kbd> / <kbd>←</kbd><kbd>→</kbd> · Use <kbd>E</kbd> · Questions <kbd>Space</kbd></div>
+      <div id="fxEnergy" class="energy fx-energy" hidden><span class="bolt">⚡</span><div class="bar"><i></i></div><b>0</b><em>Out of energy</em></div>
+      <button id="fxQBtn" class="btn primary fx-qbtn" hidden><span class="bolt">⚡</span>Answer questions <kbd>Space</kbd></button>
+      <div id="fxQuiz" class="fx-quiz" hidden role="dialog" aria-label="Answer questions for energy">
+        <div class="quiz-top">
+          <div id="fxqEnergy" class="energy"><span class="bolt">⚡</span><div class="bar"><i></i></div><b>0</b><em>Out of energy</em></div>
+          <p class="quiz-hint">Each correct answer gives <b>+100 ⚡</b></p>
+          <button class="btn" id="fxQuizClose">Back to factory <kbd>Space</kbd></button>
+        </div>
+        <div id="fxqCard" class="quiz-card">
+          <span id="fxqTag" class="chip" hidden></span>
+          <p id="fxqText"></p>
+          <b id="fxqFocus"></b>
+        </div>
+        <div id="fxqChoices" class="quiz-choices"></div>
+        <div id="fxqFeedback" class="quiz-feedback"></div>
+      </div>
       <div class="fx-touch">
         <button id="fxLeft" aria-label="Move left">◀</button>
         <button id="fxUse" aria-label="Use">E</button>

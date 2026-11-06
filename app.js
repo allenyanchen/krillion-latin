@@ -434,7 +434,7 @@
             </button>
             <button class="card mode" data-mode="factory" aria-pressed="false">
               <div class="mode-art ico-art"><i data-icon="gear"></i></div>
-              <div><h3>Factory</h3><p>Grab items off your conveyor, sell them, and steal from rival bins. Richest factory wins!</p><span class="chip">Movement · E to use</span></div>
+              <div><h3>Factory</h3><p>Answer questions for energy, grab items off your conveyor, sell them, and steal from rival bins. Richest factory wins!</p><span class="chip">Multiple choice · Movement</span></div>
             </button>
             <div class="card mode soon"><div class="mode-art ico-art"><i data-icon="users"></i></div><div><h3>Team Tide</h3><p>Split into teams and battle it out.</p><span class="chip">Coming soon</span></div></div>
           </div>
@@ -456,7 +456,7 @@
               <div class="seg" id="hMin">${[2, 3, 5, 8].map((v) => `<button data-v="${v}" class="${v === 5 ? 'on' : ''}">${v} min</button>`).join('')}</div></div>
             <div id="hGoalRow" class="opt-group" hidden><span class="lbl">Money goal</span>
               <div class="seg" id="hGoal">${[1000, 2500, 5000].map((v) => `<button data-v="${v}" class="${v === 2500 ? 'on' : ''}">$${v.toLocaleString()}</button>`).join('')}</div></div>
-            <p class="note">Factory doesn’t use the set’s questions yet.</p>
+            <p class="note">Players answer this set’s questions (multiple choice) to earn energy. Energy drains while you play.</p>
           </div>
           <label class="toggle"><input type="checkbox" id="hPlay" checked><span></span>I'm playing too</label>
           <p class="note">Turn this off to just run the game from the front of the room.</p>

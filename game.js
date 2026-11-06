@@ -96,6 +96,7 @@ window.Game = (() => {
         if (!active) return;
         if (m.t === 'chat') { if (me.host) Host.touch(); return Chat.add(m); }
         if (m.t === 'pos') return Factory.onPos(m);
+        if (m.t === 'fx-qa') return Factory.onQuestion(m);
         if (m.t === 'closed' && !me.host) return roomClosed();
         if (m.t === 'reject') { rejectedIds.add(m.id); if (m.id === me.id && !me.host) rejected(m.reason); return; }
         if (me.host) Host.onMessage(m);
@@ -251,7 +252,7 @@ window.Game = (() => {
       if (S.mode === 'factory') {
         if (!S.players.length) return UI.toast('The factory needs at least 1 player.');
         S.feed = []; S.winner = null;
-        Factory.host.start(S);
+        Factory.host.start(S, this.src);
         this.log('🏭 The factory is open!');
         this.touch();
         this.broadcast();

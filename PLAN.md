@@ -82,11 +82,15 @@ A left sidebar (a bottom tab bar on phones) links to four pages.
    | Mythical | Orb of Jupiter | $500 | 0.5% |
 
    A held item shows its rarity above your head for anyone on screen. **Legendary and Mythical** pickups are announced to everyone.
-6. **Stealing:** walk to another player's bin and press E to take a **random** item from it. The owner is notified. You can't take items from someone's hands or their conveyor.
-7. **HUD:** a minimap of every section with colored player dots and your view box, plus a live money leaderboard.
-8. **Winning:** the host picks **Most money** (2, 3, 5 or 8 minutes; richest wins) or **First to goal** ($1k, $2.5k or $5k). The game needs at least 1 player.
-9. **Networking:** the host decides pickups, bins, money and the clock. Conveyor items come from a shared random seed, so every browser shows the same belts without sending them. Positions are sent about 5 times a second, only while moving.
-10. **No Latin questions yet:** Factory doesn't use the set's questions so far.
+6. **Energy and questions:**
+   - Everyone starts with **0 energy**. A correct answer gives **+100**. Energy drains **5 per second** standing still and **10 per second** walking.
+   - At **0 you're frozen** (shown in an ice block). If you're holding an item it **drops on the floor next to you**, and anyone (including you, later) can press E to take it.
+   - Press **Space** or click **Answer questions** to open a **full-screen question screen**: the set's question at the top, its answer choices as big colored tiles below. Click a tile or press **1–4**. Right answers flash green with "+100 ⚡". Wrong ones flash red and show the correct answer. The next question appears automatically. **Space** or **Esc** takes you back to the factory.
+   - The screen opens automatically when the game starts. Each player gets their own shuffled order of questions. The host keeps the right answers and checks them.
+7. **Stealing:** walk to another player's bin and press E to take a **random** item from it. The owner is notified. You can't take items from someone's hands or their conveyor.
+8. **HUD:** an energy bar, a minimap of every section with colored player dots and your view box, plus a live money leaderboard.
+9. **Winning:** the host picks **Most money** (2, 3, 5 or 8 minutes; richest wins) or **First to goal** ($1k, $2.5k or $5k). The game needs at least 1 player.
+10. **Networking:** the host decides pickups, bins, money, energy and the clock. Conveyor items come from a shared random seed, so every browser shows the same belts without sending them. Positions use *dead reckoning*: a player sends their position and walking direction only when they start, stop or turn, plus a 1-second correction while walking (about 1–2 messages a second). Other browsers predict the movement in between.
 
 ### Answer checking
 - Capitals, spaces and macrons are ignored, and *j* counts as *i*.
@@ -123,5 +127,4 @@ GitHub Pages only serves files, so live play goes through **Supabase Realtime** 
 - Share sets with your class (the `is_public` column is ready for this).
 - More characters.
 - Quiz Race (multiple choice) and Team Tide modes.
-- Latin questions in Factory mode.
 - Host tools: kick a player, mute chat.
