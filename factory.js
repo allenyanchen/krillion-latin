@@ -3,7 +3,8 @@
 // Each player owns a section:
 //   back wall:  spawner → conveyor → compactor
 //   on the floor (further forward): holo sell pad + SELL bin
-// Answer multiple-choice questions for energy (+100). Energy drains 5/s standing, 10/s walking;
+// Answer multiple-choice questions for energy (host picks +50…+200, default +100). Energy drains 10/s
+// while walking only (standing still is free);
 // at 0 you freeze and drop what you hold. E picks up / drops / steals / grabs floor items.
 //
 // Networking: the host is authoritative for pickups, bins, money, energy and the clock.
@@ -31,7 +32,8 @@ window.Factory = (() => {
   const WALK = 95, WALKZ = 62, ACCEL = 900;
   const SLOW_SELL = 5000, FAST_SELL = 500;
   const COUNTDOWN = 3500;
-  const ENERGY_GAIN = 100, DRAIN_IDLE = 5, DRAIN_WALK = 10;
+  const GAIN_DEFAULT = 100, DRAIN_IDLE = 0, DRAIN_WALK = 10;
+  const gain = () => (fx && fx.gain) || GAIN_DEFAULT;
   const TILE_COLORS = ['amber', 'teal', 'pink', 'blue', 'purple', 'green', 'orange', 'slate'];
 
   const ITEMS = [
@@ -549,14 +551,14 @@ window.Factory = (() => {
     const e = myEnergy(), live = gameLive(), playing = amPlaying();
     const out = live && serverEnergy(ctx.me.id) <= 0;
     for (const el of [$('#fxEnergy'), $('#fxqEnergy')]) {
-      el.querySelector('i').style.width = Math.min(100, e) + '%';
+      el.querySelector('i').style.width = Math.min(100, (e / gain()) * 100) + '%';
       el.querySelector('b').textContent = Math.ceil(e);
-      el.classList.toggle('low', e < 25 && !out);
+      el.classList.toggle('low', e < gain() * 0.25 && !out);
       el.classList.toggle('out', out);
     }
     $('#fxEnergy').hidden = !playing;
     $('#fxQBtn').hidden = !playing || S.phase !== 'play';
-    $('#fxQBtn').classList.toggle('urgent', live && e < 25);
+    $('#fxQBtn').classList.toggle('urgent', live && e < gain() * 0.25);
   }
 
   // ---------- questions (full-screen, multiple choice) ----------
@@ -605,7 +607,7 @@ window.Factory = (() => {
     if (!quiz.q) return;
     document.querySelectorAll('#fxqChoices .tile').forEach((t) => { const txt = quiz.q.choices[Number(t.dataset.i)]; if (txt === ev.right) t.classList.add('right'); else if (Number(t.dataset.i) === ev.pick) t.classList.add('wrong'); });
     const fb = $('#fxqFeedback');
-    if (ev.ok) { fb.innerHTML = `+${ENERGY_GAIN} <span>⚡</span> energy!`; fb.className = 'quiz-feedback good'; energyAt = { v: myEnergy() + ENERGY_GAIN, t: performance.now() }; }
+    if (ev.ok) { fb.innerHTML = `+${gain()} <span>⚡</span> energy!`; fb.className = 'quiz-feedback good'; energyAt = { v: myEnergy() + gain(), t: performance.now() }; }
     else { fb.innerHTML = `Not quite. The answer was <b>${esc(ev.right)}</b>`; fb.className = 'quiz-feedback bad'; }
     clearTimeout(quiz.unlockTimer);
     quiz.unlockTimer = setTimeout(() => { quiz.locked = false; showQuestion(); }, ev.ok ? 750 : 1600);
@@ -756,7 +758,7 @@ window.Factory = (() => {
       } else if (ev.type === 'ans') {
         if (ev.id === ctx.me.id) onAnswerResult(ev);
         const pp = posOf(ev.id);
-        if (ev.ok && pp) { floatText(pp.x, pp.z, 40, `+${ENERGY_GAIN}⚡`, '#ffd166', 7); burst(pp.x, pp.z, SY(pp.z, 12), 10, ['#ffd166', '#fff3c4'], 40); }
+        if (ev.ok && pp) { floatText(pp.x, pp.z, 40, `+${gain()}⚡`, '#ffd166', 7); burst(pp.x, pp.z, SY(pp.z, 12), 10, ['#ffd166', '#fff3c4'], 40); }
       } else if (ev.type === 'drained' || ev.type === 'frozen') {
         const pp = posOf(ev.id);
         if (pp) { floatText(pp.x, pp.z, 40, ev.type === 'drained' ? 'DROPPED!' : 'FROZEN!', '#9fe3ff', 7); burst(pp.x, pp.z, SY(pp.z, 10), 12, ['#bfe9ff', '#ffffff'], 40); }
@@ -929,7 +931,7 @@ window.Factory = (() => {
   const host = {
     qsrc: [], qstate: new Map(), lastTick: 0, lastPush: 0, fid: 0,
     initState(opts) {
-      return { winMode: opts.winMode || 'time', minutes: opts.minutes || 5, goal: opts.goal || 2500, sec: {}, money: {}, held: {}, bins: {}, taken: {}, nextSell: {}, fast: {}, energy: {}, floor: [], evs: [], startAt: 0, endAt: 0, seed: 0 };
+      return { winMode: opts.winMode || 'time', minutes: opts.minutes || 5, goal: opts.goal || 2500, gain: opts.gain || GAIN_DEFAULT, sec: {}, money: {}, held: {}, bins: {}, taken: {}, nextSell: {}, fast: {}, energy: {}, floor: [], evs: [], startAt: 0, endAt: 0, seed: 0 };
     },
     // Sections follow the lobby order; leavers keep theirs during a game.
     assignSections(S) {
@@ -979,7 +981,7 @@ window.Factory = (() => {
         const st = this.qstate.get(id);
         if (!st || !st.cur || m.serial !== st.serial) return;
         const ok = st.cur.choices[m.choice] === st.cur.right;
-        if (ok) f.energy[id] = (f.energy[id] || 0) + ENERGY_GAIN;
+        if (ok) f.energy[id] = (f.energy[id] || 0) + (f.gain || GAIN_DEFAULT);
         this.ev(S, { type: 'ans', id, ok, right: st.cur.right, pick: m.choice });
         st.cur = null;
         this.sendQuestion(S, id);
@@ -1025,7 +1027,7 @@ window.Factory = (() => {
       const f = S.fx; if (!f) return;
       const T = Date.now();
       if (S.phase === 'play' && T >= f.startAt) {
-        // energy drain: 5/s standing, 10/s walking. Hitting 0 freezes you and drops what you hold.
+        // energy drain: 10/s walking, nothing while standing still. Hitting 0 freezes you and drops what you hold.
         const dt = this.lastTick ? Math.min(1, (T - this.lastTick) / 1000) : 0;
         this.lastTick = T;
         for (const id in f.sec) {

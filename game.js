@@ -570,6 +570,7 @@ window.Game = (() => {
         document.querySelectorAll('#fxWinSeg button').forEach((b) => b.classList.toggle('on', b.dataset.v === f.winMode));
         document.querySelectorAll('#fxMinSeg button').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === f.minutes));
         document.querySelectorAll('#fxGoalSeg button').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === f.goal));
+        document.querySelectorAll('#fxGainSeg button').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === (f.gain || 100)));
         $('#fxMinRow').hidden = f.winMode !== 'time'; $('#fxGoalRow').hidden = f.winMode !== 'money';
       }
       const need = factory ? 1 : 2, ok = s.players.length >= need;
@@ -774,7 +775,7 @@ window.Game = (() => {
       buildDrawer();
       Factory.attach({ me, send: (msg) => { if (transport) transport.send(msg); } });
       const fxSeg = (sel, key, num) => document.querySelectorAll(sel + ' button').forEach((b) => (b.onclick = () => Host.configure({ fx: { [key]: num ? Number(b.dataset.v) : b.dataset.v } })));
-      fxSeg('#fxWinSeg', 'winMode', false); fxSeg('#fxMinSeg', 'minutes', true); fxSeg('#fxGoalSeg', 'goal', true);
+      fxSeg('#fxWinSeg', 'winMode', false); fxSeg('#fxMinSeg', 'minutes', true); fxSeg('#fxGoalSeg', 'goal', true); fxSeg('#fxGainSeg', 'gain', true);
       $('#answerForm').onsubmit = (e) => {
         e.preventDefault();
         const v = $('#answerIn').value.trim();

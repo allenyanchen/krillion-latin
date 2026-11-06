@@ -458,7 +458,9 @@
               <div class="seg" id="hMin">${[2, 3, 5, 8].map((v) => `<button data-v="${v}" class="${v === 5 ? 'on' : ''}">${v} min</button>`).join('')}</div></div>
             <div id="hGoalRow" class="opt-group" hidden><span class="lbl">Money goal</span>
               <div class="seg" id="hGoal">${[1000, 2500, 5000].map((v) => `<button data-v="${v}" class="${v === 2500 ? 'on' : ''}">$${v.toLocaleString()}</button>`).join('')}</div></div>
-            <p class="note">Players answer this set’s questions (multiple choice) to earn energy. Energy drains while you play.</p>
+            <span class="lbl">Energy per correct answer</span>
+            <div class="seg" id="hGain">${[50, 100, 150, 200].map((v) => `<button data-v="${v}" class="${v === 100 ? 'on' : ''}">+${v}</button>`).join('')}</div>
+            <p class="note">Players answer this set’s questions (multiple choice) to earn energy. Walking uses 10 energy a second; standing still is free.</p>
           </div>
           <label class="toggle"><input type="checkbox" id="hPlay" checked><span></span>I'm playing too</label>
           <p class="note">Turn this off to just run the game from the front of the room.</p>
@@ -468,11 +470,12 @@
       </div>`;
     $('[data-fish-big]', main).innerHTML = UI.fish('fish-art');
     $('#hLives').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; lives = Number(b.dataset.v); $$('#hLives button').forEach((x) => x.classList.toggle('on', x === b)); };
-    let mode = 'puffer', winMode = 'time', minutes = 5, goal = 2500;
+    let mode = 'puffer', winMode = 'time', minutes = 5, goal = 2500, gain = 100;
     const segPick = (sel, fn) => { $(sel).onclick = (e) => { const b = e.target.closest('button'); if (!b) return; $$(sel + ' button').forEach((x) => x.classList.toggle('on', x === b)); fn(b.dataset.v); }; };
     segPick('#hWin', (v) => { winMode = v; $('#hMinRow').hidden = v !== 'time'; $('#hGoalRow').hidden = v !== 'money'; });
     segPick('#hMin', (v) => (minutes = Number(v)));
     segPick('#hGoal', (v) => (goal = Number(v)));
+    segPick('#hGain', (v) => (gain = Number(v)));
     $$('.mode[data-mode]').forEach((c) => (c.onclick = () => {
       mode = c.dataset.mode;
       $$('.mode[data-mode]').forEach((x) => { x.classList.toggle('selected', x === c); x.setAttribute('aria-pressed', x === c); });
@@ -483,7 +486,7 @@
       const nm = $('#hName').value.trim();
       if (!nm) { $('#hName').classList.add('invalid'); $('#hName').focus(); return UI.toast('Enter your name first.'); }
       Store.setName(nm);
-      Game.host(set, { mode, lives, fuseStart: fuse, winMode, minutes, goal, hostPlays: $('#hPlay').checked });
+      Game.host(set, { mode, lives, fuseStart: fuse, winMode, minutes, goal, gain, hostPlays: $('#hPlay').checked });
       location.hash = '#/game';
     };
   };
