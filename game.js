@@ -1,33 +1,23 @@
-// Krillion Latin: Pufferfish Party (Subjunctive Set)
+// Krillion Latin: game page (Pufferfish Party).
 // The host's browser runs the game and broadcasts the state; players send "answer" / "pass".
 // Messages go through Supabase Realtime (online), or BroadcastChannel (local test mode).
-(() => {
+window.Game = (() => {
   'use strict';
 
   const $ = (s) => document.querySelector(s);
-  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const esc = UI.esc;
   const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
-  const QS = window.SUBJUNCTIVE_SET;
   const cfg = window.KRILLION_CONFIG || {};
   const ONLINE = !!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY && window.supabase);
+  const V = (document.querySelector('script[src*="game.js"]')?.src.split('?v=')[1]) || '1';
 
   // Tuning
-  // Each holder gets a fresh timer. It starts at 30s and shrinks 1.5s per turn, down to 5s.
-  const FUSE_START = 30000, FUSE_STEP = 1500, FUSE_MIN = 5000;
-  const THROW_TIME = 700;
-  const WRONG_PENALTY = 4000;
-  const DROP_TIME = 750;
-  const POP_PAUSE = 3200;
-  const INTRO_TIME = 1600;
-  const POINTS = 100;
-  const SET_NAMES = { both: 'Present + Imperfect', present: 'Present subjunctive', imperfect: 'Imperfect subjunctive' };
+  const FUSE_START = 30000, FUSE_STEP = 1500, FUSE_MIN = 5000; // per-holder timer, shrinks each turn
+  const WRONG_PENALTY = 4000, DROP_TIME = 750, THROW_TIME = 700;
+  const POP_PAUSE = 3200, INTRO_TIME = 1600, POINTS = 100;
 
-  const store = {
-    get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
-    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
-  };
   function getId() {
     try {
       let id = sessionStorage.getItem('kl-id');
@@ -36,41 +26,37 @@
     } catch (e) { return Math.random().toString(36).slice(2, 10); }
   }
 
-  const me = {
-    id: getId(),
-    name: store.get('kl-name', ''),
-    host: false,
-    look: Scene.normLook(store.get('kl-look', { c: Math.floor(Math.random() * Scene.COLORS.length), h: 'laurel', e: 'dot' })),
-  };
-  let transport = null, S = null, code = '', roster = [];
-  let localFuseEnd = 0, lastQSerial = -1, lastEvN = -1, joinTimer = null;
+  const me = { id: getId(), name: '', host: false, look: Scene.normLook({}) };
+  let transport = null, S = null, code = '', roster = [], active = false;
+  let localFuseEnd = 0, lastQSerial = -1, lastEvN = -1, joinTimer = null, prevRoster = null, hostGoneTimer = null, joinedAt = 0;
 
   // ---------- Answers ----------
-  const norm = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/j/g, 'i').replace(/[^a-z]/g, '');
+  const norm = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/j/g, 'i').replace(/[^a-z0-9]/g, '');
   function isCorrect(given, q) {
-    const ok = [q.answer];
-    if (q.voice === 'passive' && /ris$/.test(q.answer)) ok.push(q.answer.replace(/ris$/, 're'));
-    return ok.some((a) => norm(a) === norm(given));
+    const ok = [q.answers[q.correct], ...(q.accept || [])];
+    return ok.some((a) => norm(a) && norm(a) === norm(given));
   }
-  const encQ = (q) => btoa(JSON.stringify(q));
-  const decQ = (x) => { try { return JSON.parse(atob(x)); } catch (e) { return null; } };
+  const encQ = (q) => btoa(unescape(encodeURIComponent(JSON.stringify(q))));
+  const decQ = (x) => { try { return JSON.parse(decodeURIComponent(escape(atob(x)))); } catch (e) { return null; } };
 
   // ---------- Transports ----------
   const info = () => ({ id: me.id, name: me.name, host: me.host, look: me.look });
+  let sbClient = null;
 
   function supabaseTransport(room, h) {
-    const client = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
-    const ch = client.channel('krillion-puffer-' + room, { config: { broadcast: { self: true }, presence: { key: me.id } } });
+    sbClient = sbClient || window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+    const ch = sbClient.channel('krillion-puffer-' + room, { config: { broadcast: { self: true }, presence: { key: me.id } } });
     let ready = false;
     ch.on('broadcast', { event: 'msg' }, ({ payload }) => h.onMessage(payload));
     ch.on('presence', { event: 'sync' }, () => h.onRoster(Object.values(ch.presenceState()).map((a) => a[0]).filter(Boolean)));
     ch.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') { ready = true; await ch.track(info()); h.onReady(); }
-      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') toast('Connection problem (' + status + '). Check your internet.');
+      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') UI.toast('Connection problem (' + status + '). Check your internet.');
     });
     return {
       send: (msg) => ch.send({ type: 'broadcast', event: 'msg', payload: msg }),
       update: () => { if (ready) ch.track(info()); },
+      close: () => { try { ch.untrack(); sbClient.removeChannel(ch); } catch (e) {} },
     };
   }
 
@@ -91,55 +77,81 @@
       else if (data.kind === 'msg') h.onMessage(data.msg);
     };
     const beat = () => bc.postMessage({ kind: 'hb', info: info() });
-    beat(); setInterval(() => { beat(); emit(); }, 1500);
-    window.addEventListener('beforeunload', () => bc.postMessage({ kind: 'bye', id: me.id }));
+    const bye = () => bc.postMessage({ kind: 'bye', id: me.id });
+    beat();
+    const iv = setInterval(() => { beat(); emit(); }, 1500);
+    window.addEventListener('beforeunload', bye);
     setTimeout(() => { emit(); h.onReady(); }, 50);
     return {
       send: (msg) => { bc.postMessage({ kind: 'msg', msg }); setTimeout(() => h.onMessage(msg), 0); },
       update: () => { beat(); emit(); },
+      close: () => { bye(); clearInterval(iv); window.removeEventListener('beforeunload', bye); bc.close(); },
     };
   }
 
   function connect(room) {
     const handlers = {
-      onMessage: (m) => { if (me.host) Host.onMessage(m); else if (m.t === 'state' && m.s.code === code) { clearTimeout(joinTimer); onState(m.s); } },
-      onRoster: (list) => { roster = list; if (me.host) Host.onRoster(); else watchHost(); },
-      onReady: () => { if (me.host) Host.broadcast(); },
+      onMessage: (m) => {
+        if (!active) return;
+        if (m.t === 'chat') return Chat.add(m);
+        if (me.host) Host.onMessage(m);
+        else if (m.t === 'state' && m.s.code === code) { clearTimeout(joinTimer); onState(m.s); }
+      },
+      onRoster: (list) => {
+        if (!active) return;
+        rosterNotices(list);
+        roster = list;
+        if (me.host) Host.onRoster(); else watchHost();
+      },
+      onReady: () => { if (me.host && active) Host.broadcast(); },
     };
     transport = ONLINE ? supabaseTransport(room, handlers) : localTransport(room, handlers);
   }
 
-  let hostGoneTimer = null;
+  function rosterNotices(list) {
+    const ids = new Set(list.map((r) => r.id));
+    if (prevRoster && Date.now() - joinedAt > 2500) {
+      for (const r of list) if (!prevRoster.has(r.id) && r.id !== me.id) Chat.system(`${r.name} joined`);
+      for (const [id, name] of prevRoster) if (!ids.has(id)) Chat.system(`${name} left`);
+    }
+    prevRoster = new Map(list.map((r) => [r.id, r.name]));
+  }
+
   function watchHost() {
     if (roster.some((r) => r.host)) { clearTimeout(hostGoneTimer); hostGoneTimer = null; return; }
     if (S && !hostGoneTimer) {
       hostGoneTimer = setTimeout(() => {
         hostGoneTimer = null;
-        if (!roster.some((r) => r.host)) toast('The host left the game. Refresh to start a new room.', 10000);
-      }, 8000);
+        if (active && !roster.some((r) => r.host)) {
+          UI.confirm('The host left', 'This game has ended because the host left the room.', 'Back to dashboard').then((ok) => { if (ok && active) location.hash = '#/dashboard'; });
+        }
+      }, 5000);
     }
   }
 
   // ---------- Host (authoritative game logic) ----------
   const Host = {
-    deck: [], src: [], cur: null, fuseEnd: 0, timer: null, evN: 0, turns: 0,
+    deck: [], src: [], cur: null, fuseEnd: 0, timer: null, evN: 0, turns: 0, iv: [],
 
-    init() {
+    init(set, opts) {
+      this.src = set.questions.filter((q) => q.answers && q.answers[q.correct]);
+      this.evN = 0; this.turns = 0;
       S = {
-        phase: 'lobby', code, hostId: me.id, hostPlays: true, set: 'both', lives: 3,
+        phase: 'lobby', code, hostId: me.id, hostPlays: opts.hostPlays !== false, lives: opts.lives || 3,
+        setTitle: set.title, setCount: this.src.length,
         players: [], holder: null, awaitingPass: false, qx: null, qSerial: 0,
         fuseLeft: 0, fuseTotal: 1, round: 0, feed: [], result: null, ev: null, winner: null,
       };
-      setInterval(() => this.tick(), 200);
-      setInterval(() => this.broadcast(), 3000);
+      this.iv = [setInterval(() => this.tick(), 200), setInterval(() => this.broadcast(), 3000)];
     },
+    stop() { this.iv.forEach(clearInterval); this.iv = []; clearTimeout(this.timer); },
     player(id) { return S.players.find((p) => p.id === id); },
     alive() { return S.players.filter((p) => !p.out && !p.gone); },
-    log(t) { S.feed.unshift(t); S.feed = S.feed.slice(0, 5); },
+    log(t) { S.feed.unshift(t); S.feed = S.feed.slice(0, 30); },
     ev(type, extra = {}) { S.ev = { n: ++this.evN, type, ...extra }; },
 
     broadcast() {
-      if (!S) return;
+      if (!S || !active) return;
       S.fuseLeft = S.phase === 'play' ? Math.max(0, this.fuseEnd - Date.now()) : 0;
       if (transport) transport.send({ t: 'state', s: S });
       onState(S);
@@ -182,8 +194,7 @@
 
     start() {
       this.rebuildLobby();
-      if (S.players.length < 2) return toast('Pufferfish Party needs at least 2 players.');
-      this.src = S.set === 'both' ? [...QS.present, ...QS.imperfect] : QS[S.set];
+      if (S.players.length < 2) return UI.toast('Pufferfish Party needs at least 2 players.');
       this.deck = shuffle(this.src.slice());
       this.turns = 0;
       Object.assign(S, { phase: 'intro', round: 0, feed: [], winner: null, holder: null, result: null, qx: null });
@@ -214,22 +225,23 @@
     nextQuestion() {
       if (!this.deck.length) this.deck = shuffle(this.src.slice());
       this.cur = this.deck.pop();
-      S.qx = encQ({ verb: this.cur.verb, tense: this.cur.tense, voice: this.cur.voice });
+      S.qx = encQ({ q: this.cur.q, tag: this.cur.tag || '', focus: this.cur.focus || '' });
       S.qSerial++;
     },
 
     answer(from, text) {
       if (S.phase !== 'play' || from !== S.holder || S.awaitingPass) return;
       const p = this.player(from);
+      const right = this.cur.answers[this.cur.correct];
       if (isCorrect(text, this.cur)) {
         p.score += POINTS;
         S.awaitingPass = true;
-        S.result = { id: from, ok: true, answer: this.cur.answer };
+        S.result = { id: from, ok: true, answer: right };
         this.log(`✅ ${p.name} got it right`);
         this.ev('right', { id: from });
       } else {
         this.fuseEnd -= WRONG_PENALTY;
-        S.result = { id: from, ok: false, verb: this.cur.verb, answer: this.cur.answer };
+        S.result = { id: from, ok: false, prompt: this.cur.focus || this.cur.q, answer: right };
         this.log(`❌ ${p.name} missed one (−4s)`);
         this.ev('wrong', { id: from });
         this.nextQuestion();
@@ -287,23 +299,21 @@
     },
   };
 
-  function act(msg) { transport.send({ ...msg, from: me.id }); }
+  function act(msg) { if (transport) transport.send({ ...msg, from: me.id }); }
 
-  // ---------- Background music (loops quietly) ----------
+  // ---------- Background music ----------
   const Music = {
-    SRC: 'sounds/the_mountain-retro-game-593063.mp3?v=202611051345',
-    VOL: 0.12, DUCK_VOL: 0.04,   // quiet, and quieter still while fahh plays
+    VOL: 0.12, DUCK_VOL: 0.04,
     el: null, fade: 0, duckTimer: null,
-    init() {
-      const a = (this.el = new Audio(this.SRC));
-      a.loop = true; a.preload = 'auto'; a.volume = this.VOL;
-      const start = () => a.play().catch(() => {});
-      window.addEventListener('pointerdown', start, { once: true });
-      window.addEventListener('keydown', start, { once: true });
+    get() {
+      if (!this.el) { this.el = new Audio(`sounds/the_mountain-retro-game-593063.mp3?v=${V}`); this.el.loop = true; this.el.preload = 'auto'; this.el.volume = this.VOL; }
+      return this.el;
     },
+    start() { const a = this.get(); a.volume = this.VOL; a.play().catch(() => {}); },
+    stop() { if (this.el) { this.el.pause(); clearInterval(this.fade); clearTimeout(this.duckTimer); } },
     rampTo(v, ms) {
       clearInterval(this.fade);
-      const a = this.el, from = a.volume, t0 = performance.now();
+      const a = this.get(), from = a.volume, t0 = performance.now();
       this.fade = setInterval(() => {
         const p = Math.min(1, (performance.now() - t0) / ms);
         a.volume = from + (v - from) * p;
@@ -311,34 +321,28 @@
       }, 30);
     },
     duck(sec) {
-      if (!this.el) return;
       clearTimeout(this.duckTimer);
       this.rampTo(this.DUCK_VOL, 120);
       this.duckTimer = setTimeout(() => this.rampTo(this.VOL, 600), sec * 1000);
     },
   };
 
-  // ---------- "fahh" + vine boom (plays for everyone when someone loses a heart) ----------
-  // The word lasts as long as sounds/faaah.mp3.
+  // ---------- "fahh" + vine boom when someone loses a heart ----------
   const Fah = {
-    fah: null, boom: null, raf: 0, unlocked: false,
-    init() {
-      this.fah = new Audio('sounds/faaah.mp3?v=202611051345');
-      this.boom = new Audio('sounds/vine-boom.mp3?v=202611051345');
-      for (const a of [this.fah, this.boom]) a.preload = 'auto';
-      // Browsers only allow sound after a click, so unlock both on the first one.
-      const unlock = () => {
-        if (this.unlocked) return;
-        this.unlocked = true;
-        for (const a of [this.fah, this.boom]) {
-          a.muted = true;
-          a.play().then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; });
-        }
-      };
-      window.addEventListener('pointerdown', unlock, { once: true });
-      window.addEventListener('keydown', unlock, { once: true });
+    fah: null, boom: null, raf: 0,
+    // Called from a click (Host / Join) so the browser allows sound later.
+    unlock() {
+      if (!this.fah) {
+        this.fah = new Audio(`sounds/faaah.mp3?v=${V}`);
+        this.boom = new Audio(`sounds/vine-boom.mp3?v=${V}`);
+      }
+      for (const a of [this.fah, this.boom]) {
+        a.preload = 'auto'; a.muted = true;
+        a.play().then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; });
+      }
     },
     play() {
+      if (!this.fah) return;
       Music.duck(isFinite(this.fah.duration) ? this.fah.duration : 2);
       for (const a of [this.fah, this.boom]) {
         try { a.currentTime = 0; a.muted = false; a.play().catch(() => {}); } catch (e) {}
@@ -362,8 +366,52 @@
     },
   };
 
+  // ---------- Chat + updates panel ----------
+  const Chat = {
+    lastSent: 0, unread: 0, tab: 'chat',
+    reset() { $('#chatList').innerHTML = ''; this.unread = 0; this.badge(); this.setTab('chat'); },
+    send(text) {
+      text = String(text).trim().slice(0, 200);
+      if (!text || !transport) return false;
+      const t = Date.now();
+      if (t - this.lastSent < 700) { UI.toast('Slow down a little!'); return false; }
+      this.lastSent = t;
+      transport.send({ t: 'chat', id: me.id, name: me.name, c: me.look.c, text, ts: t });
+      return true;
+    },
+    append(html, cls) {
+      const list = $('#chatList');
+      const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
+      const li = document.createElement('li');
+      li.className = cls; li.innerHTML = html;
+      list.appendChild(li);
+      while (list.children.length > 150) list.removeChild(list.firstChild);
+      if (nearBottom || cls.includes('mine')) list.scrollTop = list.scrollHeight;
+      $('#chatEmpty').hidden = true;
+    },
+    add(m) {
+      const color = Scene.COLORS[Math.max(0, Math.min(Scene.COLORS.length - 1, m.c | 0))];
+      const time = new Date(m.ts || Date.now()).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      this.append(`<span class="who" style="color:${color}">${esc(m.name)}</span><span class="when">${time}</span><p>${esc(m.text)}</p>`, m.id === me.id ? 'msg mine' : 'msg');
+      if (m.id !== me.id && (this.tab !== 'chat' || !panelOpen())) { this.unread++; this.badge(); }
+    },
+    system(text) { this.append(`<p>${esc(text)}</p>`, 'sys'); },
+    badge() {
+      for (const el of document.querySelectorAll('.chat-badge')) { el.textContent = this.unread > 9 ? '9+' : this.unread; el.hidden = !this.unread; }
+    },
+    setTab(t) {
+      this.tab = t;
+      document.querySelectorAll('#sideTabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === t));
+      $('#chatPane').hidden = t !== 'chat';
+      $('#feedPane').hidden = t !== 'feed';
+      if (t === 'chat') { this.unread = 0; this.badge(); const l = $('#chatList'); l.scrollTop = l.scrollHeight; }
+    },
+  };
+  const panelOpen = () => !$('#gamePage').classList.contains('panel-closed');
+
   // ---------- State → UI ----------
   function onState(s) {
+    if (!active) return;
     S = s;
     localFuseEnd = me.host ? Host.fuseEnd : Date.now() + s.fuseLeft;
     Scene.setPhase(s.phase);
@@ -379,9 +427,9 @@
   function handleEvent(s) {
     const ev = s.ev;
     if (lastEvN === -1 && !me.host) { lastEvN = ev ? ev.n : 0; return; } // first state: don't replay old events
-    if (!ev) return;
-    if (ev.n <= lastEvN) return;
+    if (!ev || ev.n <= lastEvN) return;
     lastEvN = ev.n;
+    const playing = s.players.some((p) => p.id === me.id);
     switch (ev.type) {
       case 'drop': Scene.fishDrop(ev.to); break;
       case 'throw': Scene.fishThrow(ev.from, ev.to); break;
@@ -389,75 +437,63 @@
         Scene.wrong(ev.id);
         if (ev.id === me.id) { const c = $('#turnCard'); c.classList.remove('shake'); void c.offsetWidth; c.classList.add('shake'); }
         break;
-      case 'right': Scene.right(ev.id); break;
+      case 'right': Scene.right(ev.id); if (ev.id === me.id) Store.bump('correct'); break;
       case 'pop': Scene.pop(ev.id, ev.out); Fah.play(); break;
-      case 'win': Scene.celebrate(ev.id); break;
+      case 'win':
+        Scene.celebrate(ev.id);
+        if (playing) { Store.bump('games'); if (ev.id === me.id) Store.bump('wins'); }
+        break;
     }
   }
 
-  function setView(v) { if (document.body.dataset.view !== v) $('#panel').scrollTop = 0; document.body.dataset.view = v; }
-
   function renderUI() {
     const s = S;
-    if (!s) {
-      setView('home');
-      Scene.setPlayers([{ id: me.id, name: me.name || 'You', look: me.look, isMe: true }]);
-      return updateInsets();
-    }
-    if (s.phase === 'lobby') {
-      setView('lobby');
-      $('#lobbyCode').textContent = s.code;
-      $('#pCount').textContent = s.players.length;
-      $('#hostSettings').hidden = !me.host;
-      $('#guestWait').hidden = me.host;
-      if (me.host) {
-        if (document.activeElement !== $('#setSel')) $('#setSel').value = s.set;
-        if (document.activeElement !== $('#livesSel')) $('#livesSel').value = String(s.lives);
-        $('#playToggle').checked = s.hostPlays;
-        const ok = s.players.length >= 2;
-        $('#startBtn').disabled = !ok;
-        $('#startHint').textContent = ok ? `${s.players.length} players ready` : 'Need at least 2 players. Share the code!';
-      }
-      $('#overModal').hidden = true;
-      Scene.setAim(false);
-      return updateInsets();
+    const page = $('#gamePage');
+    if (!s) { page.dataset.phase = 'connecting'; updateInsets(); return; }
+    page.dataset.phase = s.phase;
+    $('#gSet').textContent = s.setTitle || 'Pufferfish Party';
+    $('#gCode').textContent = s.code;
+    $('#gPlayers').textContent = `${s.players.length} player${s.players.length === 1 ? '' : 's'}`;
+    $('#gRound').textContent = s.phase === 'lobby' ? 'Lobby' : s.round ? `Round ${s.round}` : 'Starting';
+    $('#feed').innerHTML = s.feed.length ? s.feed.map((f) => `<li>${esc(f)}</li>`).join('') : '<li class="empty">Game updates will show up here.</li>';
+
+    // Lobby card
+    $('#lobbyCode').textContent = s.code;
+    $('#hostControls').hidden = !me.host;
+    $('#guestWait').hidden = me.host;
+    if (me.host) {
+      document.querySelectorAll('#heartsSeg button').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === s.lives));
+      $('#playToggle').checked = s.hostPlays;
+      const ok = s.players.length >= 2;
+      $('#startBtn').disabled = !ok;
+      $('#startHint').textContent = ok ? `${s.players.length} players ready · ${s.setCount} questions` : 'Waiting for at least 2 players…';
     }
 
-    setView('game');
     const holder = s.players.find((p) => p.id === s.holder);
     const mine = s.phase === 'play' && s.holder === me.id;
-    $('#hudInfo').innerHTML = `<b>Room ${esc(s.code)}</b> · Round ${s.round} · ${SET_NAMES[s.set]}`;
-    $('#feed').innerHTML = s.feed.map((f) => `<li>${esc(f)}</li>`).join('');
 
     // Turn card: only the holder ever sees the question.
     const answering = mine && !s.awaitingPass;
     $('#turnCard').hidden = !answering;
-    $('#aimHint').hidden = !(mine && s.awaitingPass);
     if (answering) {
       const q = decQ(s.qx);
       if (q) {
-        $('#qKind').textContent = `${q.tense} ${q.voice} subjunctive`;
-        $('#qVerb').textContent = q.verb;
+        $('#qTag').textContent = q.tag || '';
+        $('#qText').textContent = q.q;
+        $('#qFocus').textContent = q.focus || '';
+        $('#qFocus').hidden = !q.focus;
       }
-      if (s.qSerial !== lastQSerial) {
-        $('#answerIn').value = '';
-        setTimeout(() => $('#answerIn').focus(), 30);
-      }
-      const r = s.result;
-      const fb = $('#feedback');
-      if (r && r.id === me.id && !r.ok) { fb.className = 'feedback bad'; fb.innerHTML = `✗ <b>${esc(r.verb)}</b> → <b>${esc(r.answer)}</b>. Try this one!`; }
-      else { fb.className = 'feedback'; fb.textContent = 'Type the subjunctive form and press Enter'; }
+      if (s.qSerial !== lastQSerial) { $('#answerIn').value = ''; setTimeout(() => $('#answerIn').focus(), 30); }
+      if ($('#drawer').classList.contains('open')) toggleDrawer(false);
+      const r = s.result, fb = $('#feedback');
+      if (r && r.id === me.id && !r.ok) { fb.className = 'feedback bad'; fb.innerHTML = `✗ <b>${esc(r.prompt)}</b> → <b>${esc(r.answer)}</b>. Try this one!`; }
+      else { fb.className = 'feedback'; fb.textContent = 'Type your answer and press Enter'; }
     }
     lastQSerial = s.qSerial;
-    if (mine && s.awaitingPass) {
-      $('#aimHint').innerHTML = `✓ <b>${esc(s.result ? s.result.answer : '')}</b> is right! Aim and click a player to throw the pufferfish`;
-    }
-    Scene.setAim(mine && s.awaitingPass, (to) => {
-      Scene.fishThrow(me.id, to);
-      act({ t: 'pass', to });
-    });
+    $('#aimHint').hidden = !(mine && s.awaitingPass);
+    if (mine && s.awaitingPass) $('#aimHint').innerHTML = `✓ <b>${esc(s.result ? s.result.answer : '')}</b> is right! Click a player to throw the pufferfish`;
+    Scene.setAim(mine && s.awaitingPass, (to) => { Scene.fishThrow(me.id, to); act({ t: 'pass', to }); });
 
-    // Status pill for everyone else
     let pill = '';
     if (s.phase === 'intro') pill = '🐡 Get ready…';
     else if (s.phase === 'pop') pill = '💥 POP!';
@@ -465,14 +501,13 @@
     $('#statusPill').innerHTML = pill;
     $('#statusPill').hidden = !pill;
 
-    // Game over
     const over = s.phase === 'over';
     $('#overModal').hidden = !over;
     if (over) {
       const w = s.players.find((p) => p.id === s.winner);
       $('#winnerName').textContent = w ? (w.id === me.id ? 'You win!' : `${w.name} wins!`) : 'Game over';
       const ranked = s.players.slice().sort((a, b) => (a.id === s.winner ? -1 : b.id === s.winner ? 1 : (b.lives - a.lives) || (b.score - a.score)));
-      $('#standings').innerHTML = ranked.map((p) => `<li><span>${esc(p.name)}</span><span>${p.score} pts</span></li>`).join('');
+      $('#standings').innerHTML = ranked.map((p) => `<li><span>${esc(p.name)}${p.id === me.id ? ' (you)' : ''}</span><span>${p.score} pts</span></li>`).join('');
       $('#againBtn').hidden = !me.host;
       $('#againWait').hidden = me.host;
     }
@@ -480,121 +515,127 @@
   }
 
   function updateInsets() {
-    const view = document.body.dataset.view;
-    const wide = window.innerWidth >= 760;
-    const panel = $('#panel');
-    const panelOn = view === 'home' || view === 'lobby';
-    let r = 0, b = 0;
-    if (panelOn) { if (wide) r = panel.offsetWidth + 24; else b = panel.offsetHeight; }
-    else b = wide ? 170 : 200;
-    Scene.setInsets(r, b);
+    if (!active) return;
+    const page = $('#gamePage');
+    const wide = window.innerWidth >= 900;
+    const phase = page.dataset.phase;
+    const top = $('#gTop').offsetHeight + 12;
+    const side = $('#sidePanel');
+    const r = wide && panelOpen() ? side.offsetWidth + 28 : 0;
+    const lobby = phase === 'lobby' || phase === 'connecting';
+    let l = 0, t = top;
+    if (lobby) { if (wide) l = $('#lobbyCard').offsetWidth + 28; else t = top + $('#lobbyCard').offsetHeight + 8; }
+    let b = ['play', 'pop', 'intro'].includes(phase) ? (wide ? 200 : 230) : 76;
+    if ($('#drawer').classList.contains('open')) b = Math.max(b, $('#drawerBody').offsetHeight + 70);
+    Scene.setInsets({ r, b, l, t });
   }
   window.addEventListener('resize', updateInsets);
 
-  // ---------- Customization ----------
-  function buildCustomizer() {
-    const colorRow = $('#colorRow'), hatRow = $('#hatRow'), eyeRow = $('#eyeRow');
-    colorRow.innerHTML = Scene.COLORS.map((c, i) => `<button class="swatch" data-c="${i}" style="--sw:${c}" aria-label="Color ${i + 1}"></button>`).join('');
-    const opt = (kind, [id, label]) => `<button class="opt" data-${kind}="${id}"><canvas width="22" height="26"></canvas><span>${label}</span></button>`;
-    hatRow.innerHTML = Scene.HATS.map((h) => opt('h', h)).join('');
-    eyeRow.innerHTML = Scene.EYES.map((e) => opt('e', e)).join('');
-    const onPick = (e) => {
-      const b = e.target.closest('button'); if (!b) return;
-      if (b.dataset.c != null) me.look.c = Number(b.dataset.c);
-      if (b.dataset.h) me.look.h = b.dataset.h;
-      if (b.dataset.e) me.look.e = b.dataset.e;
-      lookChanged();
+  // ---------- Customize drawer (color for your current character) ----------
+  function buildDrawer() {
+    $('#drawerColors').innerHTML = Scene.COLORS.map((c, i) => `<button class="swatch" data-c="${i}" style="--sw:${c}" aria-label="Color ${i + 1}"></button>`).join('');
+    $('#drawerColors').onclick = (e) => {
+      const b = e.target.closest('.swatch'); if (!b) return;
+      me.look.c = Number(b.dataset.c);
+      Store.setLook(me.look);
+      paintDrawer();
+      if (transport) transport.update();
     };
-    [colorRow, hatRow, eyeRow].forEach((r) => r.addEventListener('click', onPick));
-    paintCustomizer();
+    $('#drawerHandle').onclick = () => toggleDrawer(!$('#drawer').classList.contains('open'));
   }
-  function paintCustomizer() {
-    Scene.drawPreview($('#preview'), me.look);
-    document.querySelectorAll('#colorRow .swatch').forEach((b) => b.classList.toggle('on', Number(b.dataset.c) === me.look.c));
-    document.querySelectorAll('#hatRow .opt').forEach((b) => {
-      b.classList.toggle('on', b.dataset.h === me.look.h);
-      Scene.drawPreview(b.querySelector('canvas'), { ...me.look, h: b.dataset.h });
-    });
-    document.querySelectorAll('#eyeRow .opt').forEach((b) => {
-      b.classList.toggle('on', b.dataset.e === me.look.e);
-      Scene.drawPreview(b.querySelector('canvas'), { ...me.look, e: b.dataset.e, h: 'none' });
-    });
+  function toggleDrawer(open) {
+    $('#drawer').classList.toggle('open', open);
+    $('#drawerHandle').setAttribute('aria-expanded', open);
+    updateInsets();
   }
-  let lookTimer = null;
-  function lookChanged() {
-    store.set('kl-look', me.look);
-    paintCustomizer();
-    if (!S) renderUI();
-    clearTimeout(lookTimer);
-    lookTimer = setTimeout(() => transport && transport.update(), 250);
+  function paintDrawer() {
+    Scene.drawPreview($('#drawerPreview'), me.look);
+    document.querySelectorAll('#drawerColors .swatch').forEach((b) => b.classList.toggle('on', Number(b.dataset.c) === me.look.c));
   }
 
-  // ---------- Misc UI ----------
-  let toastTimer;
-  function toast(msg, ms = 3500) {
-    const t = $('#toast');
-    t.textContent = msg; t.hidden = false;
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), ms);
+  // ---------- Lifecycle ----------
+  function begin() {
+    const p = Store.profile();
+    me.name = p.name; me.look = p.look;
+    active = true; S = null; roster = []; prevRoster = null; lastEvN = -1; lastQSerial = -1; joinedAt = Date.now();
+    Scene.reset();
+    Scene.setActive(true);
+    Chat.reset();
+    paintDrawer();
+    $('#drawer').classList.remove('open');
+    $('#overModal').hidden = true;
+    $('#turnCard').hidden = true; $('#aimHint').hidden = true; $('#statusPill').hidden = true;
+    Fah.unlock();
+    Music.start();
+    renderUI();
   }
-  function readName() {
-    const n = $('#nameIn').value.trim().slice(0, 14);
-    if (!n) { toast('Enter your name first.'); $('#nameIn').focus(); return null; }
-    me.name = n; store.set('kl-name', n);
-    return n;
-  }
+
   function makeCode() { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; return Array.from({ length: 4 }, () => pick(A)).join(''); }
-  function setRoomInUrl() { try { history.replaceState(null, '', `${location.pathname}?room=${code}`); } catch (e) {} }
 
-  $('#nameIn').value = me.name;
-  $('#nameIn').addEventListener('input', () => { me.name = $('#nameIn').value.trim().slice(0, 14); if (!S) renderUI(); });
-
-  $('#hostBtn').onclick = () => {
-    if (!readName()) return;
-    me.host = true; code = makeCode();
-    setRoomInUrl();
-    Host.init();
-    connect(code);
-    onState(S);
+  return {
+    online: ONLINE,
+    isActive: () => active,
+    code: () => code,
+    host(set, opts) {
+      me.host = true; code = makeCode();
+      begin();
+      Host.init(set, opts);
+      connect(code);
+      onState(S);
+      Chat.system(`Room ${code} created. Share the code to invite players!`);
+    },
+    join(c, onFail) {
+      me.host = false; code = c;
+      begin();
+      connect(code);
+      Chat.system(`Joining room ${code}…`);
+      joinTimer = setTimeout(() => { if (!S && active) { this.leave(); onFail && onFail(); } }, 8000);
+    },
+    leave() {
+      if (!active) return;
+      active = false;
+      clearTimeout(joinTimer); clearTimeout(hostGoneTimer);
+      if (me.host) Host.stop();
+      if (transport) transport.close();
+      transport = null; S = null; me.host = false;
+      Scene.setAim(false);
+      Scene.setActive(false);
+      Music.stop();
+      $('#fah').hidden = true;
+    },
+    init() {
+      buildDrawer();
+      $('#answerForm').onsubmit = (e) => {
+        e.preventDefault();
+        const v = $('#answerIn').value.trim();
+        if (!v) return;
+        act({ t: 'answer', text: v });
+        $('#answerIn').value = '';
+      };
+      $('#chatForm').onsubmit = (e) => {
+        e.preventDefault();
+        if (Chat.send($('#chatIn').value)) $('#chatIn').value = '';
+      };
+      $('#sideTabs').onclick = (e) => { const b = e.target.closest('button[data-tab]'); if (b) Chat.setTab(b.dataset.tab); };
+      const togglePanel = (open) => {
+        const page = $('#gamePage');
+        page.classList.toggle('panel-closed', !open);
+        if (open && Chat.tab === 'chat') { Chat.unread = 0; Chat.badge(); }
+        setTimeout(updateInsets, 10);
+      };
+      $('#panelClose').onclick = () => togglePanel(false);
+      $('#chatToggle').onclick = () => togglePanel(!panelOpen());
+      if (window.innerWidth < 900) $('#gamePage').classList.add('panel-closed');
+      document.querySelectorAll('#heartsSeg button').forEach((b) => (b.onclick = () => Host.configure({ lives: Number(b.dataset.v) })));
+      $('#playToggle').onchange = () => Host.configure({ hostPlays: $('#playToggle').checked });
+      $('#startBtn').onclick = () => Host.start();
+      $('#againBtn').onclick = () => Host.backToLobby();
+      const copy = async () => {
+        const url = `${location.origin}${location.pathname}#/join/${code}`;
+        try { await navigator.clipboard.writeText(url); UI.toast('Invite link copied!'); } catch (e) { UI.toast(url, 8000); }
+      };
+      $('#copyLink').onclick = copy; $('#copyLink2').onclick = copy;
+      Scene.init($('#scene'));
+    },
   };
-  $('#joinBtn').onclick = () => {
-    if (!readName()) return;
-    const c = $('#codeIn').value.trim().toUpperCase();
-    if (!/^[A-Z]{4}$/.test(c)) return toast('Room codes are 4 letters.');
-    me.host = false; code = c;
-    setRoomInUrl();
-    $('#joinBtn').disabled = true; $('#joinBtn').textContent = '…';
-    connect(code);
-    joinTimer = setTimeout(() => {
-      toast(`No room found with code ${code}. Check the code with your host.`, 6000);
-      $('#joinBtn').disabled = false; $('#joinBtn').textContent = 'Join';
-    }, 8000);
-  };
-  $('#codeIn').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#joinBtn').click(); });
-  $('#copyLink').onclick = async () => {
-    const url = `${location.origin}${location.pathname}?room=${code}`;
-    try { await navigator.clipboard.writeText(url); toast('Invite link copied!'); } catch (e) { toast(url, 8000); }
-  };
-  $('#setSel').onchange = () => Host.configure({ set: $('#setSel').value });
-  $('#livesSel').onchange = () => Host.configure({ lives: Number($('#livesSel').value) });
-  $('#playToggle').onchange = () => Host.configure({ hostPlays: $('#playToggle').checked });
-  $('#startBtn').onclick = () => Host.start();
-  $('#againBtn').onclick = () => Host.backToLobby();
-  $('#answerForm').onsubmit = (e) => {
-    e.preventDefault();
-    const v = $('#answerIn').value.trim();
-    if (!v) return;
-    act({ t: 'answer', text: v });
-    $('#answerIn').value = '';
-  };
-
-  // ---------- Init ----------
-  const roomParam = new URLSearchParams(location.search).get('room');
-  if (roomParam) $('#codeIn').value = roomParam.toUpperCase().slice(0, 4);
-  $('#modeNote').innerHTML = ONLINE ? '🌐 Online multiplayer ready' : '🧪 Local test mode: rooms only work between tabs in this browser.';
-  Scene.init($('#scene'));
-  Fah.init();
-  Music.init();
-  buildCustomizer();
-  renderUI();
-  if (document.fonts) document.fonts.ready.then(() => updateInsets());
 })();

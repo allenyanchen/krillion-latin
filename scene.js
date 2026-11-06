@@ -47,7 +47,8 @@ window.Scene = (() => {
   // ---------- State ----------
   let cv, ctx, W = 480, H = 270, SCALE = 2;
   let bg = null;
-  let insetR = 0, insetB = 0; // css px reserved for UI
+  let insetR = 0, insetB = 0, insetL = 0, insetT = 0; // css px reserved for UI
+  let active = false;
   let phase = 'home';
   let maxLives = 3;
   let VX = 240;
@@ -258,12 +259,13 @@ window.Scene = (() => {
   function layout() {
     const list = [...ents.values()].filter((e) => !e.leaving);
     const n = list.length;
-    const areaW = W - insetR / SCALE;
+    const areaW = W - (insetR + insetL) / SCALE;
     const areaH = H - insetB / SCALE;
-    const top = horizonY + 44, bottom = areaH - 22;
-    const ry = Math.max(16, (bottom - top) / 2);
-    const rx = Math.max(40, Math.min(areaW / 2 - 50, ry * 2.6));
-    ring = { cx: areaW / 2, cy: (top + bottom) / 2, rx, ry };
+    const top = Math.max(horizonY, insetT / SCALE) + 44, bottom = areaH - 22;
+    const margin = Math.max(24, Math.min(50, areaW * 0.12));
+    const rx = Math.max(40, Math.min(areaW / 2 - margin, ((bottom - top) / 2) * 2.6));
+    const ry = Math.max(16, Math.min((bottom - top) / 2, rx * 0.9));
+    ring = { cx: insetL / SCALE + areaW / 2, cy: (top + bottom) / 2, rx, ry };
     VX = ring.cx;
     const meIdx = list.findIndex((e) => e.isMe);
     const ordered = meIdx > 0 ? [...list.slice(meIdx), ...list.slice(0, meIdx)] : list;
@@ -279,7 +281,7 @@ window.Scene = (() => {
       e.ty = ring.cy + Math.sin(a) * ry * sc;
     });
     const pr = clamp((two ? rx * 0.58 : rx) * 0.3, 16, 52);
-    if (!pit.c || Math.abs(pit.r - pr) > 1.5) { pit.r = pr; pit.ry = Math.max(6, Math.round(pr * (ry / rx))); pit.c = buildPit(pr, pit.ry); }
+    if (!pit.c || Math.abs(pit.r - pr) > 1.5) { pit.r = pr; pit.ry = Math.max(6, Math.round(pr * Math.min(0.45, ry / rx))); pit.c = buildPit(pr, pit.ry); }
     pit.tx = ring.cx; pit.ty = ring.cy;
     if (!pit.placed) { pit.x = pit.tx; pit.y = pit.ty; pit.placed = true; }
   }
@@ -669,7 +671,13 @@ window.Scene = (() => {
     last = t;
     update(dt, t);
     draw(t);
-    requestAnimationFrame(frame);
+    if (active) requestAnimationFrame(frame);
+  }
+  // Only render while the game page is open.
+  function setActive(on) {
+    if (on === active) return;
+    active = on;
+    if (on) { last = now(); resize(); requestAnimationFrame(frame); }
   }
 
   function resize() {
@@ -695,7 +703,6 @@ window.Scene = (() => {
     cv.addEventListener('mousemove', onMove);
     cv.addEventListener('click', onClick);
     cv.addEventListener('touchstart', (e) => { onMove(e); onClick(e); }, { passive: true });
-    requestAnimationFrame(frame);
   }
 
   function setPhase(p) {
@@ -705,9 +712,14 @@ window.Scene = (() => {
     if (!isGame) { fish.mode = 'none'; fish.owner = null; fish.to = null; winnerId = null; celebrateUntil = 0; }
     phase = p;
   }
-  function setInsets(r, b) {
-    if (Math.abs(r - insetR) < 2 && Math.abs(b - insetB) < 2) return;
-    insetR = r; insetB = b; layout();
+  function setInsets({ r = 0, b = 0, l = 0, t = 0 }) {
+    if (Math.abs(r - insetR) < 2 && Math.abs(b - insetB) < 2 && Math.abs(l - insetL) < 2 && Math.abs(t - insetT) < 2) return;
+    insetR = r; insetB = b; insetL = l; insetT = t; layout();
+  }
+  function reset() {
+    ents.clear(); parts.length = 0; texts.length = 0; heartBits.length = 0;
+    fish.mode = 'none'; fish.owner = null; fish.to = null; winnerId = null; celebrateUntil = 0; phase = 'lobby';
+    aim.on = false; aim.hover = null;
   }
   function setTimer(end, total) { fuseEnd = end; fuseTotal = Math.max(1, total); }
 
@@ -722,7 +734,7 @@ window.Scene = (() => {
   function debug() { return [...ents.values()].map((e) => ({ id: e.id, name: e.name, out: e.out, isMe: e.isMe, x: e.x * SCALE, y: (e.y - 14) * SCALE })); }
 
   return {
-    debug, COLORS, HATS, EYES, init, setPlayers, setPhase, setInsets, setTimer, setAim,
+    debug, COLORS, HATS, EYES, init, setActive, reset, setPlayers, setPhase, setInsets, setTimer, setAim,
     fishDrop, fishThrow, fishHold, fishBusy, fishTarget, wrong, right, pop, celebrate, drawPreview, normLook,
   };
 })();
