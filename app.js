@@ -56,6 +56,7 @@
           <span class="eyebrow">${when}</span>
           <h1>Salve, ${esc(p.name || 'discipule')}!</h1>
           <p class="sub">Ready to practice some Latin? Join a game with a code, or host one for your class.</p>
+          ${Store.online && !Store.user() ? '<a class="signin-nudge" href="#/signin"><i data-icon="users"></i><span><b>Sign in</b> to save your sets and stats to your account</span><span class="go">→</span></a>' : ''}
         </div>
         <canvas class="hero-char" width="22" height="26"></canvas>
       </header>
@@ -126,7 +127,8 @@
     let filter = 'all', query = '';
     main.innerHTML = `
       <header class="page-head">
-        <div><h1>Sets</h1><p class="sub">Question sets you can host. Make your own any time.</p></div>
+        <div><h1>Sets</h1><p class="sub">Question sets you can host. Make your own any time.</p>
+          ${Store.user() ? `<p class="sync-note">${Store.cloudLoaded() ? '☁ Your sets are saved to your account' : '<span class="spinner"></span> Loading your sets…'}</p>` : ''}</div>
         <a class="btn primary" href="#/sets/new"><i data-icon="plus"></i>Create set</a>
       </header>
       <div class="toolbar">
@@ -305,7 +307,7 @@
   pages.characters = () => {
     const p = Store.profile();
     main.innerHTML = `
-      <header class="page-head"><div><h1>Characters</h1><p class="sub">Pick who you play as and make them your own.</p></div></header>
+      <header class="page-head"><div><h1>Characters</h1><p class="sub">Pick who you play as and make them your own.${Store.user() ? ' Changes are saved to your account.' : ''}</p></div></header>
       <div class="char-layout">
         <section>
           <div class="char-grid">
@@ -316,6 +318,7 @@
             </button>
           </div>
           <p class="note more">More characters are on the way.</p>
+          ${Store.user() ? `<div class="acct mobile-acct"><span class="acct-badge">${esc((Store.user().email || '?')[0].toUpperCase())}</span><span class="acct-text"><b>${esc(Store.user().email || '')}</b><small>☁ Synced</small></span><button class="btn small" id="cSignOut">Sign out</button></div>` : ''}
         </section>
         <section class="card char-stage">
           <div class="stage-art"><canvas id="bigChar" width="22" height="26"></canvas><div class="stage-rock"></div></div>
@@ -346,6 +349,7 @@
       const art = $('#bigChar'); art.classList.remove('bounce'); void art.offsetWidth; art.classList.add('bounce');
     });
     $('#cName').oninput = (e) => Store.setName(e.target.value);
+    if ($('#cSignOut')) $('#cSignOut').onclick = async () => { await Store.signOut(); UI.toast('Signed out'); location.hash = '#/dashboard'; };
     paint();
   };
 
@@ -451,6 +455,56 @@
     };
   };
 
+  // ----- sign in -----
+  pages.signin = () => {
+    if (!Store.online) return notFound('Sign-in needs the online (Supabase) setup in config.js.');
+    if (Store.user()) { location.replace('#/dashboard'); return; }
+    main.innerHTML = `
+      <div class="center-page">
+        <div class="card signin-card">
+          <div class="join-fish" data-fish-big></div>
+          <h1>Sign in</h1>
+          <p class="sub">Save your sets, character and stats to your account so they follow you to any device.</p>
+          <button class="btn-google" id="gBtn" type="button">
+            <span class="g-tile"><svg class="g-logo" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg></span>
+            <span class="g-text">Sign in with Google</span>
+          </button>
+          <div class="or-line"><span>or use email</span></div>
+          <form id="emailForm" class="email-form" novalidate>
+            <label class="field"><span class="lbl">Email</span><input id="sEmail" type="email" autocomplete="email" placeholder="you@school.edu" required></label>
+            <button class="btn big" id="sGo"><i data-icon="chat"></i>Email me a sign-in link</button>
+          </form>
+          <div id="sent" class="sent" hidden>
+            <div class="card-icon teal"><i data-icon="check"></i></div>
+            <h3>Check your inbox</h3>
+            <p>We sent a sign-in link to <b id="sentTo"></b>. Open it in <b>this browser</b> to finish signing in.</p>
+            <button class="link" id="sAgain" type="button">Use a different email</button>
+          </div>
+          <p id="sErr" class="form-error" role="alert" hidden></p>
+          <p class="note">You don’t need an account to join a game.</p>
+        </div>
+      </div>`;
+    $('[data-fish-big]', main).innerHTML = UI.fish('fish-art big');
+    const err = (m) => { $('#sErr').textContent = m; $('#sErr').hidden = !m; };
+    $('#gBtn').onclick = async () => {
+      $('#gBtn').classList.add('busy'); err('');
+      const { error } = await Store.signInGoogle();
+      if (error) { $('#gBtn').classList.remove('busy'); err('Google sign-in didn’t start: ' + error.message); }
+    };
+    $('#emailForm').onsubmit = async (e) => {
+      e.preventDefault(); err('');
+      const email = $('#sEmail').value.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { $('#sEmail').classList.add('invalid'); return err('Enter a valid email address.'); }
+      $('#sGo').disabled = true; $('#sGo').lastChild.textContent = 'Sending…';
+      const { error } = await Store.signInEmail(email);
+      $('#sGo').disabled = false; $('#sGo').lastChild.textContent = 'Email me a sign-in link';
+      if (error) return err(/rate/i.test(error.message) ? 'Too many sign-in emails were sent recently. Wait a bit, or use Google.' : error.message);
+      $('#sentTo').textContent = email; $('#emailForm').hidden = true; $('#sent').hidden = false;
+    };
+    $('#sEmail').oninput = () => $('#sEmail').classList.remove('invalid');
+    $('#sAgain').onclick = () => { $('#sent').hidden = true; $('#emailForm').hidden = false; $('#sEmail').focus(); };
+  };
+
   function notFound(msg) {
     main.innerHTML = `<div class="center-page"><div class="card empty-state"><div class="card-icon pink"><i data-icon="x"></i></div><h3>Nothing here</h3><p>${esc(msg)}</p><a class="btn primary" href="#/dashboard">Go to dashboard</a></div></div>`;
   }
@@ -459,12 +513,12 @@
   const App = (window.App = { dirty: false });
   let current = location.hash;
 
-  async function route() {
+  async function route(soft) {
     const hash = location.hash || '#/dashboard';
     const [name, a, b] = hash.replace(/^#\/?/, '').split('/');
 
     // Unsaved editor changes
-    if (App.dirty && hash !== current) {
+    if (soft !== true && App.dirty && hash !== current) {
       const ok = await UI.confirm('Leave without saving?', 'Your changes to this set haven’t been saved yet.', 'Leave', true);
       if (!ok) { history.replaceState(null, '', current); return; }
       App.dirty = false;
@@ -480,7 +534,7 @@
     if (Game.isActive()) Game.leave();
     $('#gamePage').hidden = true; $('#app').hidden = false;
 
-    const nav = { dashboard: 'dashboard', sets: 'sets', set: 'sets', edit: 'sets', host: 'sets', characters: 'characters', join: 'join' }[name] || 'dashboard';
+    const nav = { dashboard: 'dashboard', sets: 'sets', set: 'sets', edit: 'sets', host: 'sets', characters: 'characters', join: 'join', signin: 'none' }[name] || 'dashboard';
     $$('.nav a').forEach((l) => l.classList.toggle('on', l.dataset.nav === nav));
 
     if (name === 'sets' && a === 'new') pages.editor(null, b);
@@ -490,11 +544,38 @@
     else if (pages[name] && !['editor', 'set', 'host'].includes(name)) pages[name](a);
     else pages.dashboard();
 
-    const titles = { sets: 'Sets', set: 'Set', edit: 'Edit set', host: 'Host a game', characters: 'Characters', join: 'Join a game' };
+    const titles = { sets: 'Sets', set: 'Set', edit: 'Edit set', host: 'Host a game', characters: 'Characters', join: 'Join a game', signin: 'Sign in' };
     document.title = (titles[name] ? titles[name] + ' · ' : '') + 'Krillion Latin';
     paintIcons(main);
+    if (soft === true) return;
     main.classList.remove('enter'); void main.offsetWidth; main.classList.add('enter');
     window.scrollTo(0, 0); main.scrollTop = 0;
+  }
+  // Re-draw the current page when account data arrives (not while editing or playing).
+  function refresh() {
+    const name = (location.hash || '#/dashboard').replace(/^#\/?/, '').split('/')[0];
+    if (['dashboard', 'sets', 'set', 'host', ''].includes(name) && !App.dirty && !Game.isActive()) route(true);
+  }
+
+  // ---------- account ----------
+  function paintAccount() {
+    const el = $('#account');
+    if (!Store.online) { el.innerHTML = ''; return; }
+    const u = Store.user();
+    if (!u) {
+      el.innerHTML = `<a class="btn small acct-signin" href="#/signin"><i data-icon="users"></i>Sign in</a><small class="acct-hint">Save your sets to an account</small>`;
+    } else {
+      const label = u.email || (u.user_metadata && u.user_metadata.full_name) || 'Signed in';
+      el.innerHTML = `<div class="acct"><span class="acct-badge">${esc(label[0].toUpperCase())}</span>
+        <span class="acct-text"><b title="${esc(label)}">${esc(label)}</b><small>☁ Synced</small></span>
+        <button class="icon-btn" id="signOut" title="Sign out"><i data-icon="back"></i></button></div>`;
+      $('#signOut').onclick = async () => {
+        if (await UI.confirm('Sign out?', 'Your sets stay saved in your account. You can sign back in any time.', 'Sign out')) {
+          await Store.signOut(); UI.toast('Signed out');
+        }
+      };
+    }
+    paintIcons(el);
   }
 
   function paintMe() {
@@ -507,8 +588,30 @@
   $$('[data-fish]').forEach((el) => (el.innerHTML = UI.fish()));
   paintIcons();
   Game.init();
-  Store.on('profile', paintMe);
+  Store.on('profile', () => { paintMe(); });
   paintMe();
+  paintAccount();
+  Store.on('auth', (event) => {
+    paintAccount();
+    if (Store.user()) {
+      if (event === 'SIGNED_IN') UI.toast(`Signed in as ${Store.user().email || 'you'}`);
+      if (/^#\/signin/.test(location.hash)) location.hash = '#/dashboard';
+    }
+    // Tidy the URL after returning from Google / an email link.
+    if (/[?&](code|error)=/.test(location.search)) history.replaceState(null, '', location.pathname + location.hash);
+    refresh();
+  });
+  Store.on('sets', refresh);
+  Store.on('stats', refresh);
+  Store.on('error', (msg) => UI.toast(msg, 5000));
+  Store.on('import', async (n) => {
+    const yes = await UI.confirm('Bring your sets along?', `You made ${n} set${n === 1 ? '' : 's'} in this browser before signing in. Copy ${n === 1 ? 'it' : 'them'} into your account?`, 'Import');
+    const done = await Store.importLocal(yes);
+    if (done) UI.toast(`Imported ${done} set${done === 1 ? '' : 's'} into your account`);
+  });
+  // Errors sent back from Google / Supabase in the URL
+  const authErr = new URLSearchParams(location.search).get('error_description') || new URLSearchParams(location.hash.split('?')[1] || '').get('error_description');
+  if (authErr) { setTimeout(() => UI.toast('Sign-in problem: ' + authErr, 7000), 300); history.replaceState(null, '', location.pathname + '#/signin'); }
   $('#leaveBtn').onclick = async () => {
     if (await UI.confirm('Leave the game?', Game.isActive() && $('#hostControls') && !$('#hostControls').hidden ? 'You’re the host, so the game ends for everyone.' : 'You can rejoin with the same code while the game is running.', 'Leave', true)) location.hash = '#/dashboard';
   };

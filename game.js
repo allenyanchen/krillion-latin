@@ -45,7 +45,7 @@ window.Game = (() => {
   let sbClient = null;
 
   function supabaseTransport(room, h) {
-    sbClient = sbClient || window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+    sbClient = sbClient || window.SB || window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
     const ch = sbClient.channel('krillion-puffer-' + room, { config: { broadcast: { self: true }, presence: { key: me.id } } });
     let ready = false;
     ch.on('broadcast', { event: 'msg' }, ({ payload }) => h.onMessage(payload));

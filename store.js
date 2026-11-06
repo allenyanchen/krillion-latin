@@ -1,15 +1,84 @@
-// Krillion Latin: local storage for profile, sets and stats, plus shared UI helpers.
-// Everything lives in this browser for now (accounts and a database can come later).
+// Krillion Latin: profile, sets and stats, plus shared UI helpers.
+// Signed out: everything lives in this browser (localStorage).
+// Signed in (Supabase Auth): name, character, stats and your sets sync to your account.
 (() => {
   'use strict';
   const get = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
   const put = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
   const listeners = {};
-  const emit = (ev) => (listeners[ev] || []).forEach((fn) => fn());
+  const emit = (ev, data) => (listeners[ev] || []).forEach((fn) => fn(data));
   const uid = () => Math.random().toString(36).slice(2, 10);
+  const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => { const r = (Math.random() * 16) | 0; return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16); }));
+
+  // One shared Supabase client for auth, database and realtime.
+  const cfg = window.KRILLION_CONFIG || {};
+  const SB = cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY && window.supabase
+    ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, { auth: { flowType: 'pkce', persistSession: true, detectSessionInUrl: true } })
+    : null;
+  window.SB = SB;
+  const homeUrl = () => location.origin + location.pathname;
+
+  let user = null;          // Supabase user when signed in
+  let cloudSets = [];       // your sets from the database
+  let cloudStats = null;    // your stats from the database
+  let cloudLoaded = false;
+  let pushTimer = null;
+
+  const rowToSet = (r) => ({ id: r.id, title: r.title, description: r.description || '', questions: r.questions || [], builtIn: false, createdAt: Date.parse(r.created_at), updatedAt: Date.parse(r.updated_at), cloud: true });
+  const fail = (what, error) => { if (error) { console.warn(what, error); emit('error', `Couldn’t ${what}. Check your connection and try again.`); } };
+
+  function schedulePushProfile() {
+    if (!user) return;
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(async () => {
+      const p = Store.profile();
+      const { error } = await SB.from('profiles').upsert({ id: user.id, name: p.name, look: p.look, stats: cloudStats || {}, updated_at: new Date().toISOString() });
+      fail('save your profile', error);
+    }, 600);
+  }
+
+  async function loadCloud() {
+    const u = user;
+    if (!u) return;
+    cloudLoaded = false; emit('sets');
+    const [prof, sets] = await Promise.all([
+      SB.from('profiles').select('*').eq('id', u.id).maybeSingle(),
+      SB.from('sets').select('*').eq('owner', u.id).order('updated_at', { ascending: false }),
+    ]);
+    if (user !== u) return; // signed out meanwhile
+    fail('load your profile', prof.error); fail('load your sets', sets.error);
+    if (prof.data) {
+      if (prof.data.name) put('kl-name', prof.data.name);
+      if (prof.data.look) put('kl-look', Scene.normLook(prof.data.look));
+      cloudStats = { games: 0, wins: 0, correct: 0, ...(prof.data.stats || {}) };
+    } else if (!prof.error) {
+      // First sign-in: start the account from this browser's profile.
+      const meta = u.user_metadata || {};
+      if (!get('kl-name', '')) put('kl-name', String(meta.full_name || meta.name || '').split(' ')[0].slice(0, 14));
+      cloudStats = { games: 0, wins: 0, correct: 0, ...get('kl-stats', {}) };
+      schedulePushProfile();
+    }
+    cloudSets = (sets.data || []).map(rowToSet);
+    cloudLoaded = true;
+    emit('profile'); emit('stats'); emit('sets');
+    const local = get('kl-sets', []);
+    if (local.length && !get('kl-import-asked-' + u.id, false)) emit('import', local.length);
+  }
 
   window.Store = {
     on(ev, fn) { (listeners[ev] = listeners[ev] || []).push(fn); },
+
+    // ----- account -----
+    online: !!SB,
+    user: () => user,
+    cloudLoaded: () => cloudLoaded,
+    signInGoogle() {
+      return SB.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: homeUrl(), queryParams: { prompt: 'select_account' } } });
+    },
+    signInEmail(email) {
+      return SB.auth.signInWithOtp({ email, options: { emailRedirectTo: homeUrl() } });
+    },
+    async signOut() { await SB.auth.signOut(); },
 
     // ----- profile -----
     profile() {
@@ -18,29 +87,73 @@
         look: Scene.normLook(get('kl-look', { c: Math.floor(Math.random() * Scene.COLORS.length), h: 'laurel', e: 'dot' })),
       };
     },
-    setName(n) { put('kl-name', String(n).trim().slice(0, 14)); emit('profile'); },
-    setLook(l) { put('kl-look', Scene.normLook(l)); emit('profile'); },
+    setName(n) { put('kl-name', String(n).trim().slice(0, 14)); emit('profile'); schedulePushProfile(); },
+    setLook(l) { put('kl-look', Scene.normLook(l)); emit('profile'); schedulePushProfile(); },
 
     // ----- sets -----
-    customSets() { return get('kl-sets', []); },
+    customSets() { return user ? cloudSets : get('kl-sets', []); },
     sets() { return [...window.BUILTIN_SETS, ...this.customSets()]; },
     getSet(id) { return this.sets().find((s) => s.id === id) || null; },
     saveSet(set) {
-      const list = this.customSets();
       const now = Date.now();
-      if (!set.id) set.id = 'set-' + uid();
       set.builtIn = false; set.updatedAt = now; set.createdAt = set.createdAt || now;
-      const i = list.findIndex((s) => s.id === set.id);
-      if (i >= 0) list[i] = set; else list.unshift(set);
-      put('kl-sets', list); emit('sets');
+      if (user) {
+        if (!set.id || !set.cloud) set.id = uuid();
+        set.cloud = true;
+        const i = cloudSets.findIndex((s) => s.id === set.id);
+        if (i >= 0) cloudSets[i] = set; else cloudSets.unshift(set);
+        SB.from('sets').upsert({ id: set.id, title: set.title, description: set.description, questions: set.questions, updated_at: new Date(now).toISOString() })
+          .then(({ error }) => fail('save your set', error));
+      } else {
+        const list = get('kl-sets', []);
+        if (!set.id) set.id = 'set-' + uid();
+        const i = list.findIndex((s) => s.id === set.id);
+        if (i >= 0) list[i] = set; else list.unshift(set);
+        put('kl-sets', list);
+      }
+      emit('sets');
       return set;
     },
-    deleteSet(id) { put('kl-sets', this.customSets().filter((s) => s.id !== id)); emit('sets'); },
+    deleteSet(id) {
+      if (user) {
+        cloudSets = cloudSets.filter((s) => s.id !== id);
+        SB.from('sets').delete().eq('id', id).then(({ error }) => fail('delete your set', error));
+      } else put('kl-sets', get('kl-sets', []).filter((s) => s.id !== id));
+      emit('sets');
+    },
+    // Copy sets made while signed out into your account.
+    async importLocal(yes) {
+      if (!user) return 0;
+      put('kl-import-asked-' + user.id, true);
+      if (!yes) return 0;
+      const local = get('kl-sets', []);
+      const rows = local.map((s) => ({ id: uuid(), title: s.title, description: s.description || '', questions: s.questions }));
+      const { error } = await SB.from('sets').insert(rows);
+      if (error) { fail('import your sets', error); return 0; }
+      put('kl-sets', []);
+      await loadCloud();
+      return rows.length;
+    },
 
     // ----- stats -----
-    stats() { return { games: 0, wins: 0, correct: 0, ...get('kl-stats', {}) }; },
-    bump(k, n = 1) { const s = this.stats(); s[k] = (s[k] || 0) + n; put('kl-stats', s); emit('stats'); },
+    stats() { return { games: 0, wins: 0, correct: 0, ...(user && cloudStats ? cloudStats : get('kl-stats', {})) }; },
+    bump(k, n = 1) {
+      if (user && cloudStats) { cloudStats[k] = (cloudStats[k] || 0) + n; schedulePushProfile(); }
+      else { const s = { ...get('kl-stats', {}) }; s[k] = (s[k] || 0) + n; put('kl-stats', s); }
+      emit('stats');
+    },
   };
+
+  if (SB) {
+    SB.auth.onAuthStateChange((event, session) => {
+      const next = session ? session.user : null;
+      if ((next && next.id) === (user && user.id)) { user = next; return; }
+      user = next;
+      cloudSets = []; cloudStats = null; cloudLoaded = false;
+      // Don't await Supabase calls inside this callback (supabase-js recommendation).
+      setTimeout(() => { if (user) loadCloud(); emit('auth', event); emit('sets'); emit('stats'); }, 0);
+    });
+  }
 
   // ----- UI helpers -----
   const ICONS = {

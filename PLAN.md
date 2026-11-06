@@ -25,7 +25,14 @@ A left sidebar (a bottom tab bar on phones) links to four pages.
   - *Subjunctive Set* (all 92)
   - *Present Subjunctive* (48)
   - *Imperfect Subjunctive* (44)
-- **Your sets** are saved in your browser for now. Accounts and a shared database can come later.
+- **Your sets:** signed out, they're saved in your browser. Signed in, they're saved to your account in Supabase.
+
+## Accounts
+- **Sign in** with Google, or with an emailed sign-in link. The sidebar has a Sign in button; the dashboard has a reminder.
+- **Signed in:** your name, character, stats and sets sync to your account (the `profiles` and `sets` tables), so they follow you to any device.
+- **Importing:** the first time you sign in, you're offered to copy sets you made in this browser into your account.
+- **No account needed to play:** anyone can join a game with just a name.
+- **Privacy rules:** Row Level Security means each person can only read and change their own rows.
 
 ## The game page (full screen)
 - **Top bar:**
@@ -86,7 +93,7 @@ GitHub Pages only serves files, so live play goes through **Supabase Realtime** 
 | `sounds/` | faaah, vine boom, background music |
 
 ## Future ideas
-- Accounts and a shared database, so sets and stats follow you between devices.
+- Share sets with your class (the `is_public` column is ready for this).
 - More characters.
 - Quiz Race (multiple choice) and Team Tide modes.
 - Host tools: kick a player, mute chat.
