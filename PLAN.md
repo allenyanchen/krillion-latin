@@ -63,10 +63,13 @@ A left sidebar (a bottom tab bar on phones) links to four pages.
 9. **Music:** background music loops quietly and dips while the faaah plays.
 
 ### Factory rules
-1. **The world:** a side-view factory floor with parallax depth. Far tanks and chimneys move slowest, then mid pipes and vats, then near pipes and chains. A dark foreground of girders and railings moves faster than you.
-2. **Your section:** each player owns one section, in lobby order. From left to right: a grey **spawner** pumps items onto a **conveyor**, the belt carries them into a grey **compactor** where they disappear, then comes your yellow holographic **sell pad** and your **SELL bin**.
+1. **The world:** a **2.5D factory floor** with real depth. You walk left, right, toward the back wall and toward the front with **WASD** or the arrow keys, and diagonally too. The floor is drawn in one-point perspective, and the machines are 3D blocks with top, front and side faces. Players are drawn in front of or behind machines depending on where they stand, and they can't walk through them. Behind the back wall, parallax layers of tanks, pipes, vats and chains scroll at different speeds, with a dark foreground of girders and railings in front.
+2. **Your section:** each player owns one section, in lobby order.
+   - Against the back wall: a grey **spawner** (screen, status light, hopper) pumps items onto a **conveyor** with moving cleats, and the belt carries them into a grey **compactor** (piston, warning beacon, hazard stripes) where they disappear.
+   - Out on the floor, further forward: your yellow holographic **sell pad** and your **SELL bin**, with SELL painted onto its front in pixels and a dashed walkway leading to it.
 3. **Controls:**
-   - Move with **A/D** or the arrow keys. On touch screens there are on-screen ◀ E ▶ buttons.
+   - Move with **WASD** or the arrow keys. On touch screens there's an on-screen D-pad and an E button.
+   - To pick up from the belt, stand in front of it.
    - Next to an item on *your own* conveyor, a prompt says **Press E to pick up**. You carry **one item at a time**.
    - Press **E** at your bin to drop the item in.
 4. **Selling:** the bin sells one item every **5 s**, or every **0.5 s** while you stand on your pad. Each sale pops a **+$** next to the bin in the item's rarity color.

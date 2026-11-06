@@ -399,13 +399,15 @@
       const c = code.value.trim().toUpperCase();
       Store.setName(name.value);
       const nm = name.value.trim();
+      go.disabled = true; go.classList.add('busy'); go.lastChild.textContent = 'Joining…';
       Game.join(c, (reason) => {
         App.joinError = reason === 'name'
           ? { field: 'name', msg: `Someone in this room is already called “${nm}”. Pick a different name.` }
           : { field: 'code', msg: `No game found with code ${c}. Check the code and try again.` };
-        location.hash = '#/join/' + c;
-      });
-      location.hash = '#/game';
+        const target = '#/join/' + c;
+        if (location.hash === target) window.dispatchEvent(new HashChangeEvent('hashchange'));
+        else location.hash = target;
+      }, () => { location.hash = '#/game'; });
     };
   };
 

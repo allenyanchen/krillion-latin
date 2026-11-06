@@ -563,10 +563,13 @@ kbd { font-family: 'Pixelify Sans', sans-serif; font-weight: 700; display: inlin
 .fx-banner { position: absolute; z-index: 5; top: 84px; left: 50%; transform: translateX(-50%); padding: 10px 18px; background: #2a1c3d; color: #f4e6ff; border-radius: var(--radius); font-weight: 600; box-shadow: 0 0 0 var(--px) var(--edge), inset 0 var(--px) 0 #5b3d82, 0 calc(var(--px) * 2) 0 var(--px) rgba(0,0,0,.35); max-width: calc(100% - 32px); text-align: center; }
 .fx-banner.in { animation: bannerIn .45s cubic-bezier(.2, .9, .3, 1.4); }
 @keyframes bannerIn { from { opacity: 0; transform: translate(-50%, -16px) scale(.9); } }
-.fx-touch { display: none; position: absolute; z-index: 4; left: 12px; right: 12px; bottom: 56px; justify-content: space-between; pointer-events: none; }
+.fx-touch { display: none; position: absolute; z-index: 4; left: 12px; right: 12px; bottom: 12px; justify-content: space-between; align-items: flex-end; pointer-events: none; }
 .fx-touch button { pointer-events: auto; width: 64px; height: 64px; font-size: 1.4rem; font-family: 'Pixelify Sans', sans-serif; font-weight: 700; color: var(--ink); background: rgba(22, 49, 80, .85); border: none; border-radius: var(--radius); box-shadow: 0 0 0 var(--px) var(--edge), inset 0 -3px 0 #0d2133; touch-action: none; user-select: none; }
-.fx-touch #fxUse { background: var(--accent); color: #2b1600; margin: 0 auto; }
-@media (pointer: coarse) { .fx-touch { display: flex; } .fx-keys-help { display: none; } .fx-prompt { bottom: 132px; } .fx-energy { bottom: 132px; } .fx-qbtn { bottom: 184px; } }
+.fx-touch #fxUse { background: var(--accent); color: #2b1600; align-self: flex-end; width: 76px; height: 76px; }
+.dpad { pointer-events: none; display: grid; grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(3, 52px); gap: 4px; }
+.dpad button { width: 52px; height: 52px; font-size: 1.1rem; }
+.dpad .up { grid-column: 2; grid-row: 1; } .dpad .left { grid-column: 1; grid-row: 2; } .dpad .right { grid-column: 3; grid-row: 2; } .dpad .down { grid-column: 2; grid-row: 3; }
+@media (pointer: coarse) { .fx-touch { display: flex; } .fx-keys-help { display: none; } .fx-prompt { bottom: 186px; } .fx-energy { bottom: 186px; } .fx-qbtn { bottom: 238px; } }
 .game-page[data-mode="factory"] .drawer:not(.open) { opacity: .9; }
 .new-mode { margin-top: 6px; }
 

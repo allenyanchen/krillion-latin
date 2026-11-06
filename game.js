@@ -100,10 +100,18 @@ window.Game = (() => {
         if (m.t === 'closed' && !me.host) return roomClosed();
         if (m.t === 'reject') { rejectedIds.add(m.id); if (m.id === me.id && !me.host) rejected(m.reason); return; }
         if (me.host) Host.onMessage(m);
-        else if (m.t === 'state' && m.s.code === code) { clearTimeout(joinTimer); onState(m.s); }
+        else if (m.t === 'state' && m.s.code === code) {
+          clearTimeout(joinTimer);
+          onState(m.s);
+          if (joining) { joining = false; if (readyCb) readyCb(); } // only now show the game page
+        }
       },
       onRoster: (list) => {
         if (!active) return;
+        if (joining) {
+          const mine = me.name.trim().toLowerCase();
+          if (list.some((r) => r.id !== me.id && String(r.name || '').trim().toLowerCase() === mine)) return rejected('name');
+        }
         rosterNotices(list);
         roster = list;
         if (me.host) Host.onRoster(); else watchHost();
@@ -498,6 +506,7 @@ window.Game = (() => {
       return;
     }
     S = s;
+    Scene.setActive(true);
     localFuseEnd = me.host ? Host.fuseEnd : Date.now() + s.fuseLeft;
     Scene.setPhase(s.phase);
     adoptColor(s);
@@ -691,11 +700,12 @@ window.Game = (() => {
     }
   }
 
-  let failCb = null;
+  let failCb = null, readyCb = null, joining = false;
   const rejectedIds = new Set();
   function rejected(reason) {
     if (!active) return;
     const c = code;
+    joining = false;
     Game.leave();
     if (failCb) failCb(reason, c);
   }
@@ -714,7 +724,6 @@ window.Game = (() => {
     Factory.deactivate();
     $('#gamePage').dataset.mode = 'puffer';
     Scene.reset();
-    Scene.setActive(true);
     Chat.reset();
     paintDrawer();
     $('#drawer').classList.remove('open');
@@ -740,12 +749,13 @@ window.Game = (() => {
       onState(S);
       Chat.system(`Room ${code} created. Share the code to invite players!`);
     },
-    join(c, onFail) {
-      me.host = false; code = c; failCb = onFail;
+    // Connects in the background; onReady fires once the room is confirmed and your name is free.
+    join(c, onFail, onReady) {
+      me.host = false; code = c; failCb = onFail; readyCb = onReady; joining = true;
       begin();
       connect(code);
       Chat.system(`Joining room ${code}…`);
-      joinTimer = setTimeout(() => { if (!S && active) { this.leave(); onFail && onFail('missing', c); } }, 8000);
+      joinTimer = setTimeout(() => { if (joining && active) { joining = false; this.leave(); onFail && onFail('missing', c); } }, 8000);
     },
     leave() {
       if (!active) return;
