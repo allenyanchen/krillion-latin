@@ -559,8 +559,10 @@ window.Factory = (() => {
     if (!S || !S.players.some((p) => p.id === ctx.me.id) || mySection() == null) return;
     const t = performance.now(), v = me.dir * WALK;
     const changed = v !== me.sentV, heartbeat = v !== 0 && t - me.sent > 1000;
-    if (!changed && !heartbeat) return;
-    me.sent = t; me.sentV = v;
+    // after letting go you slide a few pixels; send the exact spot once you've fully stopped
+    const settle = v === 0 && !me.moving && me.sentX != null && Math.abs(me.x - me.sentX) > 0.5;
+    if (!changed && !heartbeat && !settle) return;
+    me.sent = t; me.sentV = v; me.sentX = me.x;
     ctx.send({ t: 'pos', id: ctx.me.id, x: Math.round(me.x * 10) / 10, v, f: me.f });
   }
   function onPos(m) {
