@@ -539,6 +539,123 @@
     $('#sAgain').onclick = () => { $('#sent').hidden = true; $('#emailForm').hidden = false; $('#sEmail').focus(); };
   };
 
+  // ----- profile + site theme -----
+  pages.profile = () => {
+    const p = Store.profile(), st = Store.stats(), u = Store.user();
+    const t = Theme.load();
+    main.innerHTML = `
+      <header class="page-head"><div><h1>Profile</h1><p class="sub">Your account, your character, and how the site looks.</p></div></header>
+      <section class="card profile-top">
+        <canvas class="profile-char" width="22" height="26"></canvas>
+        <div class="profile-id">
+          <h2>${esc(p.name || 'No name yet')}</h2>
+          <p class="note">${u ? `Signed in as <b>${esc(u.email || '')}</b> · ☁ synced` : 'Not signed in. Your sets and stats are saved in this browser.'}</p>
+          <div class="row wrap">
+            <a class="btn small" href="#/characters"><i data-icon="characters"></i>Edit character</a>
+            ${Store.online ? (u ? '<button class="btn small" id="pSignOut"><i data-icon="back"></i>Sign out</button>' : '<a class="btn small primary" href="#/signin"><i data-icon="users"></i>Sign in</a>') : ''}
+          </div>
+        </div>
+      </section>
+      <section class="stats">
+        <div class="stat"><i data-icon="play"></i><b>${st.games}</b><span>Games played</span></div>
+        <div class="stat"><i data-icon="crown"></i><b>${st.wins}</b><span>Wins</span></div>
+        <div class="stat"><i data-icon="check"></i><b>${st.correct}</b><span>Correct answers</span></div>
+        <div class="stat"><i data-icon="sets"></i><b>${Store.customSets().length}</b><span>Sets created</span></div>
+      </section>
+
+      <section class="card theme-card">
+        <div class="theme-head">
+          <div><h2>Site theme</h2><p class="note">Pick a preset or build your own. Every color is generated from your accent, and text is automatically kept readable.</p></div>
+          <button class="btn small" id="tReset">Reset to default</button>
+        </div>
+        <span class="lbl">Presets</span>
+        <div class="preset-grid" id="tPresets">${Theme.PRESETS.map((pr) => {
+          const k = Theme.build(pr).tokens;
+          return `<button class="preset" data-id="${pr.id}" style="--pbg:${k.bg};--ppanel:${k.panel};--pacc:${k.accent};--pink2:${k.ink};--pmuted:${k.muted};--pline:${k.line}">
+            <span class="pv"><span class="pv-bar"></span><span class="pv-card"><i></i><i></i><b></b></span></span>
+            <span class="pn">${esc(pr.name)}</span><span class="pm">${pr.mode}</span></button>`;
+        }).join('')}</div>
+
+        <div class="theme-custom">
+          <div class="theme-controls">
+            <span class="lbl">Mode</span>
+            <div class="seg" id="tMode"><button data-v="dark">Dark</button><button data-v="light">Light</button></div>
+            <label class="lbl" for="tHue">Accent color</label>
+            <input type="range" id="tHue" class="hue-slider" min="0" max="360" step="1" aria-label="Accent hue">
+            <label class="lbl" for="tChroma">Vibrance</label>
+            <input type="range" id="tChroma" class="tone-slider" min="0" max="100" step="1" aria-label="Accent vibrance">
+            <div class="hex-row">
+              <input type="color" id="tPick" aria-label="Pick a color">
+              <label class="hex-field"><span>#</span><input id="tHex" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Hex color"></label>
+              <span class="note" id="tHexNote">Type any hex color</span>
+            </div>
+            <label class="lbl" for="tTint">Background tint</label>
+            <label class="toggle"><input type="checkbox" id="tFollow"><span></span>Match the accent color</label>
+            <input type="range" id="tTint" class="hue-slider dim-track" min="0" max="360" step="1" aria-label="Background tint hue">
+          </div>
+          <div class="theme-preview">
+            <div class="card preview-card">
+              <span class="eyebrow">Preview</span>
+              <h3>Salve, discipule!</h3>
+              <p>Secondary text looks like this. <span class="hl">Highlights</span> and codes like <b class="code">ABCD</b> use your accent.</p>
+              <input placeholder="Type an answer…" aria-label="Preview input">
+              <div class="row wrap"><button class="btn primary small" type="button">Primary</button><button class="btn small" type="button">Secondary</button><span class="chip">Chip</span><span class="badge">Badge</span></div>
+            </div>
+            <ul class="contrast-list" id="tReport"></ul>
+            <p class="note">Contrast is checked against WCAG: at least 4.5:1 for text, 3:1 for buttons.</p>
+          </div>
+        </div>
+      </section>`;
+    drawChar($('.profile-char', main));
+    const so = $('#pSignOut'); if (so) so.onclick = async () => { await Store.signOut(); UI.toast('Signed out'); route(true); };
+
+    // build the rainbow tracks from OKLCH so every hue looks equally bright
+    const stops = (L, C) => Array.from({ length: 13 }, (_, i) => Theme.oklch(L, C, i * 30)).join(', ');
+    $('#tHue').style.setProperty('--track', `linear-gradient(90deg, ${stops(0.75, 0.16)})`);
+    $('#tTint').style.setProperty('--track', `linear-gradient(90deg, ${stops(0.45, 0.06)})`);
+
+    let cur = { ...t };
+    const L0 = () => Theme.rgbToOklch(Theme.hexToRgb(cur.accent))[0];
+    function sync() {
+      const [L, C, h] = Theme.rgbToOklch(Theme.hexToRgb(cur.accent));
+      if (document.activeElement !== $('#tHue')) $('#tHue').value = Math.round(h);
+      if (document.activeElement !== $('#tChroma')) $('#tChroma').value = Math.round(Math.min(1, C / 0.25) * 100);
+      $('#tChroma').style.setProperty('--track', `linear-gradient(90deg, ${Theme.oklch(L, 0, h)}, ${Theme.oklch(L, 0.25, h)})`);
+      if (document.activeElement !== $('#tHex')) $('#tHex').value = cur.accent.replace('#', '');
+      $('#tPick').value = cur.accent;
+      $$('#tMode button').forEach((b) => b.classList.toggle('on', b.dataset.v === cur.mode));
+      $('#tFollow').checked = cur.tint == null;
+      $('#tTint').disabled = cur.tint == null;
+      $('#tTint').value = cur.tint == null ? Math.round(h) : cur.tint;
+      $$('#tPresets .preset').forEach((b) => b.classList.toggle('on', b.dataset.id === cur.preset));
+      const tokens = Theme.build(cur).tokens;
+      $('#tReport').innerHTML = Theme.report(tokens).map((r) => `<li class="${r.ratio >= r.min ? 'ok' : 'bad'}"><span>${r.label}</span><b>${r.ratio.toFixed(1)}:1</b><em>${r.ratio >= r.min ? '✓ passes' : '✗ low'}</em></li>`).join('');
+    }
+    let saveTimer = 0;
+    function set(changes, presetId = null) {
+      cur = { ...cur, ...changes, preset: presetId };
+      Theme.apply(cur);
+      clearTimeout(saveTimer); saveTimer = setTimeout(() => Theme.save(cur), 150);
+      sync();
+    }
+    $('#tPresets').onclick = (e) => { const b = e.target.closest('.preset'); if (!b) return; const pr = Theme.PRESETS.find((x) => x.id === b.dataset.id); set({ accent: pr.accent, mode: pr.mode, tint: pr.tint ?? null }, pr.id); };
+    $('#tMode').onclick = (e) => { const b = e.target.closest('button'); if (b) set({ mode: b.dataset.v }); };
+    const fromSliders = () => set({ accent: Theme.oklch(Math.min(0.86, Math.max(0.6, L0())), (Number($('#tChroma').value) / 100) * 0.25, Number($('#tHue').value)) });
+    $('#tHue').oninput = fromSliders; $('#tChroma').oninput = fromSliders;
+    $('#tPick').oninput = (e) => set({ accent: e.target.value });
+    $('#tHex').oninput = (e) => {
+      const v = e.target.value.trim().replace(/^#/, '');
+      const ok = Theme.isHex(v) && (v.length === 3 || v.length === 6);
+      $('#tHexNote').textContent = ok ? 'Looks good' : 'Use 3 or 6 hex digits, like ffb238';
+      $('#tHexNote').classList.toggle('error', !ok && v.length >= 3);
+      if (ok) set({ accent: '#' + (v.length === 3 ? [...v].map((x) => x + x).join('') : v).toLowerCase() });
+    };
+    $('#tFollow').onchange = (e) => set({ tint: e.target.checked ? null : Math.round(Theme.rgbToOklch(Theme.hexToRgb(cur.accent))[2]) });
+    $('#tTint').oninput = (e) => set({ tint: Number(e.target.value) });
+    $('#tReset').onclick = () => set({ accent: Theme.DEFAULT.accent, mode: Theme.DEFAULT.mode, tint: Theme.DEFAULT.tint }, Theme.DEFAULT.preset);
+    sync();
+  };
+
   function notFound(msg) {
     main.innerHTML = `<div class="center-page"><div class="card empty-state"><div class="card-icon pink"><i data-icon="x"></i></div><h3>Nothing here</h3><p>${esc(msg)}</p><a class="btn primary" href="#/dashboard">Go to dashboard</a></div></div>`;
   }
@@ -601,7 +718,8 @@
     if (Game.isActive()) Game.leave();
     $('#gamePage').hidden = true; $('#app').hidden = false;
 
-    const nav = { dashboard: 'dashboard', sets: 'sets', set: 'sets', edit: 'sets', host: 'sets', characters: 'characters', join: 'join', signin: 'none' }[name] || 'dashboard';
+    const nav = { dashboard: 'dashboard', sets: 'sets', set: 'sets', edit: 'sets', host: 'sets', characters: 'characters', join: 'join', signin: 'none', profile: 'profile' }[name] || 'dashboard';
+    $('.me-chip').classList.toggle('on', name === 'profile');
     $$('.nav a').forEach((l) => l.classList.toggle('on', l.dataset.nav === nav));
 
     if (name === 'sets' && a === 'new') pages.editor(null, b);
@@ -611,7 +729,7 @@
     else if (pages[name] && !['editor', 'set', 'host'].includes(name)) pages[name](a);
     else pages.dashboard();
 
-    const titles = { sets: 'Sets', set: 'Set', edit: 'Edit set', host: 'Host a game', characters: 'Characters', join: 'Join a game', signin: 'Sign in' };
+    const titles = { sets: 'Sets', set: 'Set', edit: 'Edit set', host: 'Host a game', characters: 'Characters', join: 'Join a game', signin: 'Sign in', profile: 'Profile' };
     document.title = (titles[name] ? titles[name] + ' · ' : '') + 'Krillion Latin';
     paintIcons(main);
     if (soft === true) return;

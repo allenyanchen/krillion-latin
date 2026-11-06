@@ -14,15 +14,17 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800&family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=202611052235">
+  <meta name="theme-color" content="#011021">
+  <script src="theme.js?v=202611060757"></script>
+  <link rel="stylesheet" href="style.css?v=202611060757">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-  <script src="config.js?v=202611052235"></script>
-  <script src="questions.js?v=202611052235"></script>
-  <script src="scene.js?v=202611052235" defer></script>
-  <script src="store.js?v=202611052235" defer></script>
-  <script src="factory.js?v=202611052235" defer></script>
-  <script src="game.js?v=202611052235" defer></script>
-  <script src="app.js?v=202611052235" defer></script>
+  <script src="config.js?v=202611060757"></script>
+  <script src="questions.js?v=202611060757"></script>
+  <script src="scene.js?v=202611060757" defer></script>
+  <script src="store.js?v=202611060757" defer></script>
+  <script src="factory.js?v=202611060757" defer></script>
+  <script src="game.js?v=202611060757" defer></script>
+  <script src="app.js?v=202611060757" defer></script>
 </head>
 <body>
   <!-- ============ App shell (dashboard pages) ============ -->
@@ -37,11 +39,12 @@
         <li><a href="#/sets" data-nav="sets"><i data-icon="sets"></i><span>Sets</span></a></li>
         <li><a href="#/characters" data-nav="characters"><i data-icon="characters"></i><span>Characters</span></a></li>
         <li><a href="#/join" data-nav="join"><i data-icon="join"></i><span>Join Game</span></a></li>
+        <li class="mobile-only"><a href="#/profile" data-nav="profile"><i data-icon="gear"></i><span>Profile</span></a></li>
       </ul>
       <a class="btn primary side-host" href="#/sets"><i data-icon="play"></i>Host a game</a>
-      <a class="me-chip" href="#/characters" title="Your character">
+      <a class="me-chip" href="#/profile" title="Profile and site theme">
         <canvas id="meChip" width="22" height="26"></canvas>
-        <span><b id="meName">Set your name</b><small>Edit character</small></span>
+        <span><b id="meName">Set your name</b><small>Profile &amp; theme</small></span>
       </a>
       <div id="account" class="account"></div>
       <p class="side-legal"><a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a></p>

@@ -11,6 +11,7 @@ A left sidebar (a bottom tab bar on phones) links to four pages.
 | **Sets** | All sets, with search and an All / Built-in / My sets filter. **Create set** opens the editor. Each set has a page listing every question with its correct answer highlighted. Built-in sets can be duplicated and edited; your own sets can be edited or deleted. |
 | **Characters** | One character for now (**Bloop**), with your display name, color, hat and eyes |
 | **Join Game** | Its own page: enter the 4-letter code and your name, then join |
+| **Profile** (click your name card in the sidebar) | Your character, account and stats, plus the **site theme**: 9 presets (7 dark, 2 light) or a custom theme built from an accent color (hue and vibrance sliders, color picker, hex box), dark or light mode, and a background-tint slider. A live preview shows the contrast check for every important text color. |
 
 **Hosting** opens its own page:
 1. Pick a set.
@@ -118,6 +119,7 @@ GitHub Pages only serves files, so live play goes through **Supabase Realtime** 
 | `index.html` | App shell (sidebar and main area) plus the game page markup |
 | `style.css` | UI for every page. Pixelify Sans for headings, buttons and labels; Nunito for body text so it's easy to read. In-game names and numbers are drawn on a sharp text layer over the pixel scene. |
 | `app.js` | Router and pages: dashboard, sets, set view, set editor, characters, join, host |
+| `theme.js` | Theme engine: builds every color from one accent in OKLCH, tints the backgrounds, and checks text contrast (WCAG 4.5:1 / 3:1). Loaded before the page draws, so there's no flash. |
 | `store.js` | Local storage (profile, sets, stats) plus shared UI helpers: pixel icons, toasts, confirm dialogs |
 | `game.js` | Multiplayer, host game logic, chat, drawer, music and sounds |
 | `factory.js` | Factory mode: parallax renderer, conveyors, items, movement, bins and stealing, host rules, minimap |
