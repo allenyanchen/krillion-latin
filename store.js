@@ -45,7 +45,7 @@
       SB.from('profiles').select('*').eq('id', u.id).maybeSingle(),
       SB.from('sets').select('*').eq('owner', u.id).order('updated_at', { ascending: false }),
     ]);
-    if (user !== u) return; // signed out meanwhile
+    if (!user || user.id !== u.id) return; // signed out (or switched accounts) meanwhile
     fail('load your profile', prof.error); fail('load your sets', sets.error);
     if (prof.data) {
       if (prof.data.name) put('kl-name', prof.data.name);
@@ -58,11 +58,24 @@
       cloudStats = { games: 0, wins: 0, correct: 0, ...get('kl-stats', {}) };
       schedulePushProfile();
     }
+    if (sets.error) return; // don't offer imports if we couldn't see what's already in the account
     cloudSets = (sets.data || []).map(rowToSet);
     cloudLoaded = true;
     emit('profile'); emit('stats'); emit('sets');
-    const local = get('kl-sets', []);
-    if (local.length && !get('kl-import-asked-' + u.id, false)) emit('import', local.length);
+    const pending = Store.localOnlySets(true);
+    if (pending.length) emit('import', pending);
+  }
+
+  // A set saved in this browser is "compatible" if it has a title and every question has text and a correct answer.
+  function isCompatible(s) {
+    return s && typeof s.title === 'string' && s.title.trim() && Array.isArray(s.questions) && s.questions.length &&
+      s.questions.every((q) => q && typeof q.q === 'string' && Array.isArray(q.answers) && Number.isInteger(q.correct) && typeof q.answers[q.correct] === 'string' && q.answers[q.correct].trim());
+  }
+  // Content fingerprint, so a set already in your account isn't offered again.
+  function signature(s) {
+    const text = String(s.title).trim().toLowerCase() + '|' + JSON.stringify(s.questions.map((q) => [String(q.q).trim(), q.focus || '', q.answers.map((a) => String(a).trim()), q.correct]));
+    let h = 2166136261; for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
+    return (h >>> 0).toString(36) + text.length;
   }
 
   window.Store = {
@@ -91,7 +104,7 @@
     setLook(l) { put('kl-look', Scene.normLook(l)); emit('profile'); schedulePushProfile(); },
 
     // ----- sets -----
-    customSets() { return user ? cloudSets : get('kl-sets', []); },
+    customSets() { return user ? cloudSets : get('kl-sets', []).filter((s) => s && s.id && Array.isArray(s.questions)); },
     sets() { return [...window.BUILTIN_SETS, ...this.customSets()]; },
     getSet(id) { return this.sets().find((s) => s.id === id) || null; },
     saveSet(set) {
@@ -121,16 +134,26 @@
       } else put('kl-sets', get('kl-sets', []).filter((s) => s.id !== id));
       emit('sets');
     },
-    // Copy sets made while signed out into your account.
-    async importLocal(yes) {
+    // Sets saved in this browser that are valid and not already in your account.
+    // skipDeclined: leave out ones you said "not now" to (used for the automatic prompt).
+    localOnlySets(skipDeclined) {
+      if (!user || !cloudLoaded) return [];
+      const inAccount = new Set(cloudSets.map(signature));
+      const declined = new Set(skipDeclined ? get('kl-import-skip-' + user.id, []) : []);
+      return get('kl-sets', []).filter((s) => isCompatible(s) && !inAccount.has(signature(s)) && !declined.has(signature(s)));
+    },
+    // Move the chosen browser sets into your account; remember the rest as "not now".
+    async importLocal(ids, offered) {
       if (!user) return 0;
-      put('kl-import-asked-' + user.id, true);
-      if (!yes) return 0;
       const local = get('kl-sets', []);
-      const rows = local.map((s) => ({ id: uuid(), title: s.title, description: s.description || '', questions: s.questions }));
+      const chosen = local.filter((s) => ids.includes(s.id));
+      const skipped = (offered || []).filter((s) => !ids.includes(s.id)).map(signature);
+      if (skipped.length) put('kl-import-skip-' + user.id, [...new Set([...get('kl-import-skip-' + user.id, []), ...skipped])]);
+      if (!chosen.length) return 0;
+      const rows = chosen.map((s) => ({ id: uuid(), title: s.title.trim(), description: s.description || '', questions: s.questions }));
       const { error } = await SB.from('sets').insert(rows);
-      if (error) { fail('import your sets', error); return 0; }
-      put('kl-sets', []);
+      if (error) { fail('move your sets', error); return 0; }
+      put('kl-sets', local.filter((s) => !ids.includes(s.id)));
       await loadCloud();
       return rows.length;
     },

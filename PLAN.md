@@ -30,7 +30,7 @@ A left sidebar (a bottom tab bar on phones) links to four pages.
 ## Accounts
 - **Sign in** with Google, or with an emailed sign-in link. The sidebar has a Sign in button; the dashboard has a reminder.
 - **Signed in:** your name, character, stats and sets sync to your account (the `profiles` and `sets` tables), so they follow you to any device.
-- **Importing:** the first time you sign in, you're offered to copy sets you made in this browser into your account.
+- **Moving browser sets:** whenever you're signed in, the site looks for sets saved in this browser that are valid and not already in your account (matched by content). If it finds any, it lists them so you can pick which to move. *Not now* remembers your choice, and the Sets page shows a *Review & move* banner so you can move them later.
 - **No account needed to play:** anyone can join a game with just a name.
 - **Privacy rules:** Row Level Security means each person can only read and change their own rows.
 

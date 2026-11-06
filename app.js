@@ -10,7 +10,7 @@
   const HUES = [205, 265, 330, 12, 168, 42, 290, 188];
   const hueOf = (id) => { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return HUES[h % HUES.length]; };
   const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
-  const validQs = (set) => set.questions.filter((q) => q.answers && String(q.answers[q.correct] || '').trim());
+  const validQs = (set) => (Array.isArray(set.questions) ? set.questions : []).filter((q) => q.answers && String(q.answers[q.correct] || '').trim());
   const promptText = (q) => [q.q, q.focus].filter(Boolean).join(' ');
   function paintIcons(root = document) { $$('[data-icon]', root).forEach((el) => { if (!el.dataset.painted) { el.innerHTML = icon(el.dataset.icon); el.dataset.painted = 1; } }); }
   function drawChar(canvas, look) { if (canvas) Scene.drawPreview(canvas, look || Store.profile().look); }
@@ -135,7 +135,13 @@
         <label class="search"><i data-icon="search"></i><input id="setSearch" placeholder="Search sets…" aria-label="Search sets"></label>
         <div class="seg" id="setFilter"><button data-f="all" class="on">All</button><button data-f="builtin">Built-in</button><button data-f="mine">My sets</button></div>
       </div>
+      <div id="localBanner"></div>
       <div id="setGrid" class="set-grid"></div>`;
+    const localOnly = Store.localOnlySets(false);
+    if (localOnly.length) {
+      $('#localBanner').innerHTML = `<div class="local-banner"><i data-icon="sets"></i><span><b>${plural(localOnly.length, 'set')}</b> saved in this browser ${localOnly.length === 1 ? 'isn’t' : 'aren’t'} in your account yet.</span><button class="btn small primary" id="moveLocal">Review &amp; move</button></div>`;
+      $('#moveLocal').onclick = () => showImport(Store.localOnlySets(false));
+    }
     const draw = () => {
       const list = Store.sets().filter((s) => (filter === 'all' || (filter === 'builtin') === !!s.builtIn) && (!query || (s.title + ' ' + (s.description || '')).toLowerCase().includes(query)));
       const grid = $('#setGrid');
@@ -510,6 +516,39 @@
     main.innerHTML = `<div class="center-page"><div class="card empty-state"><div class="card-icon pink"><i data-icon="x"></i></div><h3>Nothing here</h3><p>${esc(msg)}</p><a class="btn primary" href="#/dashboard">Go to dashboard</a></div></div>`;
   }
 
+  // ---------- move browser sets into your account ----------
+  let importOpen = false;
+  function showImport(sets) {
+    if (importOpen || !sets.length) return;
+    importOpen = true;
+    const m = document.createElement('div');
+    m.id = 'importModal'; m.className = 'modal';
+    m.innerHTML = `
+      <div class="modal-card g-card confirm import-card" role="dialog" aria-labelledby="impTitle">
+        <h3 id="impTitle">Move your sets to your account?</h3>
+        <p>We found ${plural(sets.length, 'set')} saved in this browser that ${sets.length === 1 ? 'isn’t' : 'aren’t'} in your account yet. Moving ${sets.length === 1 ? 'it' : 'them'} saves ${sets.length === 1 ? 'it' : 'them'} to your account so ${sets.length === 1 ? 'it follows' : 'they follow'} you to any device.</p>
+        <ul class="import-list">${sets.map((s) => `
+          <li><label><input type="checkbox" data-id="${esc(s.id)}" checked><span class="box"></span>
+            <span class="imp-text"><b>${esc(s.title)}</b><small>${plural(s.questions.length, 'question')}</small></span></label></li>`).join('')}
+        </ul>
+        <div class="modal-actions"><button class="btn" data-cancel>Not now</button><button class="btn primary" data-ok></button></div>
+      </div>`;
+    document.body.appendChild(m);
+    const ok = $('[data-ok]', m);
+    const picked = () => $$('input[type=checkbox]', m).filter((c) => c.checked).map((c) => c.dataset.id);
+    const label = () => { const n = picked().length; ok.textContent = n ? `Move ${plural(n, 'set')}` : 'Move sets'; ok.disabled = !n; };
+    m.addEventListener('change', label); label();
+    const close = () => { m.remove(); importOpen = false; };
+    $('[data-cancel]', m).onclick = async () => { close(); await Store.importLocal([], sets); UI.toast('No problem. You can move them later from the Sets page.'); };
+    ok.onclick = async () => {
+      ok.disabled = true; ok.textContent = 'Moving…';
+      const n = await Store.importLocal(picked(), sets);
+      close();
+      if (n) UI.toast(`Moved ${plural(n, 'set')} to your account`);
+    };
+    ok.focus();
+  }
+
   // ---------- router ----------
   const App = (window.App = { dirty: false });
   let current = location.hash;
@@ -605,11 +644,7 @@
   Store.on('sets', refresh);
   Store.on('stats', refresh);
   Store.on('error', (msg) => UI.toast(msg, 5000));
-  Store.on('import', async (n) => {
-    const yes = await UI.confirm('Bring your sets along?', `You made ${n} set${n === 1 ? '' : 's'} in this browser before signing in. Copy ${n === 1 ? 'it' : 'them'} into your account?`, 'Import');
-    const done = await Store.importLocal(yes);
-    if (done) UI.toast(`Imported ${done} set${done === 1 ? '' : 's'} into your account`);
-  });
+  Store.on('import', (sets) => showImport(sets));
   // Errors sent back from Google / Supabase in the URL
   const authErr = new URLSearchParams(location.search).get('error_description') || new URLSearchParams(location.hash.split('?')[1] || '').get('error_description');
   if (authErr) { setTimeout(() => UI.toast('Sign-in problem: ' + authErr, 7000), 300); history.replaceState(null, '', location.pathname + '#/signin'); }
