@@ -755,7 +755,7 @@ window.Scene = (() => {
   function debug() { return [...ents.values()].map((e) => ({ id: e.id, name: e.name, out: e.out, isMe: e.isMe, x: e.x * SCALE, y: (e.y - 14) * SCALE })); }
 
   return {
-    debug, COLORS, HATS, EYES, init, setActive, reset, setPlayers, setPhase, setInsets, setTimer, setAim,
+    debug, drawCharacter, COLORS, HATS, EYES, init, setActive, reset, setPlayers, setPhase, setInsets, setTimer, setAim,
     fishDrop, fishThrow, fishHold, fishBusy, fishTarget, wrong, right, pop, celebrate, drawPreview, normLook,
   };
 })();

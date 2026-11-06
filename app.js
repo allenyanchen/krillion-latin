@@ -104,6 +104,7 @@
             <li><i data-icon="crown"></i>Last player with hearts wins</li>
           </ul>
           <a class="btn primary" href="#/host/subjunctive-all"><i data-icon="play"></i>Host the Subjunctive Set</a>
+          <p class="note new-mode">New: <b>Factory</b> mode. Pick it when you host a game.</p>
         </div>
       </section>
 
@@ -427,22 +428,36 @@
           </div>
           <span class="lbl">Game mode</span>
           <div class="modes">
-            <button class="card mode selected" aria-pressed="true">
+            <button class="card mode selected" data-mode="puffer" aria-pressed="true">
               <div class="mode-art" data-fish-big></div>
               <div><h3>Pufferfish Party</h3><p>Answer to earn the throw. Don’t be holding it when it pops!</p><span class="chip">Typed answers</span></div>
             </button>
-            <div class="card mode soon"><div class="mode-art ico-art"><i data-icon="bolt"></i></div><div><h3>Quiz Race</h3><p>Race through multiple-choice answers.</p><span class="chip">Coming soon</span></div></div>
+            <button class="card mode" data-mode="factory" aria-pressed="false">
+              <div class="mode-art ico-art"><i data-icon="gear"></i></div>
+              <div><h3>Factory</h3><p>Grab items off your conveyor, sell them, and steal from rival bins. Richest factory wins!</p><span class="chip">Movement · E to use</span></div>
+            </button>
             <div class="card mode soon"><div class="mode-art ico-art"><i data-icon="users"></i></div><div><h3>Team Tide</h3><p>Split into teams and battle it out.</p><span class="chip">Coming soon</span></div></div>
           </div>
         </section>
         <section class="card host-settings">
           <h3>Settings</h3>
           <label class="field"><span class="lbl">Your name</span><input id="hName" maxlength="14" placeholder="e.g. Magister" value="${esc(p.name)}"></label>
+          <div id="hPuffer" class="opt-group">
           <span class="lbl">Hearts per player</span>
           <div class="seg" id="hLives">${[1, 2, 3, 4, 5].map((v) => `<button data-v="${v}" class="${v === lives ? 'on' : ''}">${v}</button>`).join('')}</div>
           <span class="lbl">Starting timer</span>
           <div class="seg" id="hFuse">${[10, 15, 20, 25, 30].map((v) => `<button data-v="${v}" class="${v === fuse ? 'on' : ''}">${v}s</button>`).join('')}</div>
           <p class="note">Each new holder starts with this much time, minus 2 seconds per turn (never below 5s).</p>
+          </div>
+          <div id="hFactory" class="opt-group" hidden>
+            <span class="lbl">How to win</span>
+            <div class="seg" id="hWin"><button data-v="time" class="on">Most money</button><button data-v="money">First to goal</button></div>
+            <div id="hMinRow" class="opt-group"><span class="lbl">Game length</span>
+              <div class="seg" id="hMin">${[2, 3, 5, 8].map((v) => `<button data-v="${v}" class="${v === 5 ? 'on' : ''}">${v} min</button>`).join('')}</div></div>
+            <div id="hGoalRow" class="opt-group" hidden><span class="lbl">Money goal</span>
+              <div class="seg" id="hGoal">${[1000, 2500, 5000].map((v) => `<button data-v="${v}" class="${v === 2500 ? 'on' : ''}">$${v.toLocaleString()}</button>`).join('')}</div></div>
+            <p class="note">Factory doesn’t use the set’s questions yet.</p>
+          </div>
           <label class="toggle"><input type="checkbox" id="hPlay" checked><span></span>I'm playing too</label>
           <p class="note">Turn this off to just run the game from the front of the room.</p>
           <button class="btn primary big" id="hGo" ${n ? '' : 'disabled'}><i data-icon="play"></i>Create room</button>
@@ -451,12 +466,22 @@
       </div>`;
     $('[data-fish-big]', main).innerHTML = UI.fish('fish-art');
     $('#hLives').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; lives = Number(b.dataset.v); $$('#hLives button').forEach((x) => x.classList.toggle('on', x === b)); };
+    let mode = 'puffer', winMode = 'time', minutes = 5, goal = 2500;
+    const segPick = (sel, fn) => { $(sel).onclick = (e) => { const b = e.target.closest('button'); if (!b) return; $$(sel + ' button').forEach((x) => x.classList.toggle('on', x === b)); fn(b.dataset.v); }; };
+    segPick('#hWin', (v) => { winMode = v; $('#hMinRow').hidden = v !== 'time'; $('#hGoalRow').hidden = v !== 'money'; });
+    segPick('#hMin', (v) => (minutes = Number(v)));
+    segPick('#hGoal', (v) => (goal = Number(v)));
+    $$('.mode[data-mode]').forEach((c) => (c.onclick = () => {
+      mode = c.dataset.mode;
+      $$('.mode[data-mode]').forEach((x) => { x.classList.toggle('selected', x === c); x.setAttribute('aria-pressed', x === c); });
+      $('#hPuffer').hidden = mode !== 'puffer'; $('#hFactory').hidden = mode !== 'factory';
+    }));
     $('#hFuse').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; fuse = Number(b.dataset.v); $$('#hFuse button').forEach((x) => x.classList.toggle('on', x === b)); };
     $('#hGo').onclick = () => {
       const nm = $('#hName').value.trim();
       if (!nm) { $('#hName').classList.add('invalid'); $('#hName').focus(); return UI.toast('Enter your name first.'); }
       Store.setName(nm);
-      Game.host(set, { lives, fuseStart: fuse, hostPlays: $('#hPlay').checked });
+      Game.host(set, { mode, lives, fuseStart: fuse, winMode, minutes, goal, hostPlays: $('#hPlay').checked });
       location.hash = '#/game';
     };
   };

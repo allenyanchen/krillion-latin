@@ -95,6 +95,7 @@ window.Game = (() => {
       onMessage: (m) => {
         if (!active) return;
         if (m.t === 'chat') { if (me.host) Host.touch(); return Chat.add(m); }
+        if (m.t === 'pos') return Factory.onPos(m);
         if (m.t === 'closed' && !me.host) return roomClosed();
         if (m.t === 'reject') { rejectedIds.add(m.id); if (m.id === me.id && !me.host) rejected(m.reason); return; }
         if (me.host) Host.onMessage(m);
@@ -148,6 +149,8 @@ window.Game = (() => {
         players: [], holder: null, awaitingPass: false, qx: null, qSerial: 0,
         fuseLeft: 0, fuseTotal: 1, round: 0, feed: [], result: null, ev: null, winner: null,
       };
+      S.mode = opts.mode === 'factory' ? 'factory' : 'puffer';
+      if (S.mode === 'factory') S.fx = Factory.host.initState(opts);
       this.colorMap = new Map(); this.lastActive = Date.now();
       this.firstSeen = new Map([[me.id, 0]]); this.seenN = 1; this.rejected = new Set();
       this.iv = [setInterval(() => this.tick(), 200), setInterval(() => this.broadcast(), 3000)];
@@ -161,6 +164,7 @@ window.Game = (() => {
     broadcast() {
       if (!S || !active) return;
       S.fuseLeft = S.phase === 'play' ? Math.max(0, this.fuseEnd - Date.now()) : 0;
+      if (S.fx) S.fx.hostNow = Date.now();
       if (transport) transport.send({ t: 'state', s: S });
       onState(S);
     },
@@ -172,6 +176,7 @@ window.Game = (() => {
         .filter((r) => !this.rejected.has(r.id) && (S.hostPlays || !r.host))
         .map((r) => ({ id: r.id, name: r.name, look: { ...r.look }, want: r.look.c, lives: S.lives, score: 0, out: false, gone: false }));
       this.assignColors();
+      if (S.mode === 'factory') Factory.host.assignSections(S);
     },
 
     // Every player gets a different color. Players who already own a color keep it,
@@ -227,6 +232,7 @@ window.Game = (() => {
 
     onMessage(m) {
       this.touch();
+      if (S.mode === 'factory') return Factory.host.onMessage(S, m);
       if (m.t === 'answer') this.answer(m.from, m.text);
       else if (m.t === 'pass') this.pass(m.from, m.to);
     },
@@ -234,6 +240,7 @@ window.Game = (() => {
     configure(o) {
       if (S.phase !== 'lobby') return;
       this.touch();
+      if (o.fx) { Object.assign(S.fx, o.fx); delete o.fx; }
       Object.assign(S, o);
       this.rebuildLobby();
       this.broadcast();
@@ -241,6 +248,15 @@ window.Game = (() => {
 
     start() {
       this.rebuildLobby();
+      if (S.mode === 'factory') {
+        if (!S.players.length) return UI.toast('The factory needs at least 1 player.');
+        S.feed = []; S.winner = null;
+        Factory.host.start(S);
+        this.log('🏭 The factory is open!');
+        this.touch();
+        this.broadcast();
+        return;
+      }
       if (S.players.length < 2) return UI.toast('Pufferfish Party needs at least 2 players.');
       this.deck = shuffle(this.src.slice());
       this.turns = 0;
@@ -309,7 +325,8 @@ window.Game = (() => {
 
     tick() {
       if (!S) return;
-      if (S.phase === 'play' && Date.now() >= this.fuseEnd) this.pop();
+      if (S.mode === 'factory') Factory.host.tick(S, () => this.broadcast());
+      else if (S.phase === 'play' && Date.now() >= this.fuseEnd) this.pop();
       if (Date.now() - this.lastActive > IDLE_CLOSE) this.closeRoom();
     },
 
@@ -351,6 +368,7 @@ window.Game = (() => {
     backToLobby() {
       Object.assign(S, { phase: 'lobby', feed: [], result: null, winner: null, holder: null, qx: null });
       this.rebuildLobby();
+      if (S.mode === 'factory') Factory.host.reset(S);
       this.ev('lobby');
       this.broadcast();
     },
@@ -469,6 +487,15 @@ window.Game = (() => {
   // ---------- State → UI ----------
   function onState(s) {
     if (!active) return;
+    if (s.mode === 'factory') {
+      S = s;
+      Scene.setAim(false); Scene.setActive(false);
+      adoptColor(s);
+      Factory.onState(s);
+      paintDrawer();
+      renderUI();
+      return;
+    }
     S = s;
     localFuseEnd = me.host ? Host.fuseEnd : Date.now() + s.fuseLeft;
     Scene.setPhase(s.phase);
@@ -510,10 +537,13 @@ window.Game = (() => {
     const page = $('#gamePage');
     if (!s) { page.dataset.phase = 'connecting'; updateInsets(); return; }
     page.dataset.phase = s.phase;
-    $('#gSet').textContent = s.setTitle || 'Pufferfish Party';
+    const factory = s.mode === 'factory';
+    page.dataset.mode = factory ? 'factory' : 'puffer';
+    $('#gMode').textContent = factory ? '🏭 Factory' : '🐡 Pufferfish Party';
+    $('#gSet').textContent = factory ? 'Factory' : s.setTitle || 'Pufferfish Party';
     $('#gCode').textContent = s.code;
     $('#gPlayers').textContent = `${s.players.length} player${s.players.length === 1 ? '' : 's'}`;
-    $('#gRound').textContent = s.phase === 'lobby' ? 'Lobby' : s.round ? `Round ${s.round}` : 'Starting';
+    $('#gRound').textContent = factory ? Factory.statusText(s) : s.phase === 'lobby' ? 'Lobby' : s.round ? `Round ${s.round}` : 'Starting';
     $('#feed').innerHTML = s.feed.length ? s.feed.map((f) => `<li>${esc(f)}</li>`).join('') : '<li class="empty">Game updates will show up here.</li>';
 
     // Lobby card
@@ -524,10 +554,19 @@ window.Game = (() => {
       document.querySelectorAll('#heartsSeg button').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === s.lives));
       document.querySelectorAll('#timerSeg button').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === s.fuseStart));
       $('#playToggle').checked = s.hostPlays;
-      const ok = s.players.length >= 2;
+      $('#pufferOpts').hidden = factory; $('#factoryOpts').hidden = !factory;
+      if (factory) {
+        const f = s.fx;
+        document.querySelectorAll('#fxWinSeg button').forEach((b) => b.classList.toggle('on', b.dataset.v === f.winMode));
+        document.querySelectorAll('#fxMinSeg button').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === f.minutes));
+        document.querySelectorAll('#fxGoalSeg button').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === f.goal));
+        $('#fxMinRow').hidden = f.winMode !== 'time'; $('#fxGoalRow').hidden = f.winMode !== 'money';
+      }
+      const need = factory ? 1 : 2, ok = s.players.length >= need;
       $('#startBtn').disabled = !ok;
-      $('#startHint').textContent = ok ? `${s.players.length} players ready · ${s.setCount} questions` : 'Waiting for at least 2 players…';
+      $('#startHint').textContent = ok ? (factory ? `${s.players.length} worker${s.players.length === 1 ? '' : 's'} ready` : `${s.players.length} players ready · ${s.setCount} questions`) : `Waiting for at least ${need} players…`;
     }
+    if (factory) { renderOver(s); return; }
 
     const holder = s.players.find((p) => p.id === s.holder);
     const mine = s.phase === 'play' && s.holder === me.id;
@@ -561,9 +600,25 @@ window.Game = (() => {
     $('#statusPill').innerHTML = pill;
     $('#statusPill').hidden = !pill;
 
+    renderOver(s);
+    updateInsets();
+  }
+
+  function renderOver(s) {
+    const factory = s.mode === 'factory';
+    if (factory) { $('#turnCard').hidden = true; $('#aimHint').hidden = true; $('#statusPill').hidden = true; }
     const over = s.phase === 'over';
     $('#overModal').hidden = !over;
-    if (over) {
+    if (over && factory) {
+      const w = s.players.find((p) => p.id === s.winner);
+      const cash = (p) => '$' + Math.round(s.fx.money[p.id] || 0).toLocaleString();
+      $('#winnerName').textContent = w ? (w.id === me.id ? 'You win!' : `${w.name} wins!`) : 'Game over';
+      $('#overSub').textContent = s.fx.winMode === 'money' ? `first to $${s.fx.goal.toLocaleString()}` : 'richest factory when time ran out';
+      const ranked = s.players.slice().sort((a, b) => (s.fx.money[b.id] || 0) - (s.fx.money[a.id] || 0));
+      $('#standings').innerHTML = ranked.map((p) => `<li><span>${esc(p.name)}${p.id === me.id ? ' (you)' : ''}</span><span>${cash(p)}</span></li>`).join('');
+      $('#againBtn').hidden = !me.host; $('#againWait').hidden = me.host;
+    } else if (over) {
+      $('#overSub').textContent = 'survived the Pufferfish Party';
       const w = s.players.find((p) => p.id === s.winner);
       $('#winnerName').textContent = w ? (w.id === me.id ? 'You win!' : `${w.name} wins!`) : 'Game over';
       const ranked = s.players.slice().sort((a, b) => (a.id === s.winner ? -1 : b.id === s.winner ? 1 : (b.lives - a.lives) || (b.score - a.score)));
@@ -575,7 +630,7 @@ window.Game = (() => {
   }
 
   function updateInsets() {
-    if (!active) return;
+    if (!active || (S && S.mode === 'factory')) return;
     const page = $('#gamePage');
     const wide = window.innerWidth >= 900;
     const phase = page.dataset.phase;
@@ -655,6 +710,8 @@ window.Game = (() => {
     const p = Store.profile();
     me.name = p.name; me.look = p.look;
     active = true; S = null; roster = []; prevRoster = null; lastEvN = -1; lastQSerial = -1; joinedAt = Date.now();
+    Factory.deactivate();
+    $('#gamePage').dataset.mode = 'puffer';
     Scene.reset();
     Scene.setActive(true);
     Chat.reset();
@@ -698,11 +755,15 @@ window.Game = (() => {
       transport = null; S = null; me.host = false;
       Scene.setAim(false);
       Scene.setActive(false);
+      Factory.deactivate();
       Music.stop();
       $('#fah').hidden = true;
     },
     init() {
       buildDrawer();
+      Factory.attach({ me, send: (msg) => { if (transport) transport.send(msg); } });
+      const fxSeg = (sel, key, num) => document.querySelectorAll(sel + ' button').forEach((b) => (b.onclick = () => Host.configure({ fx: { [key]: num ? Number(b.dataset.v) : b.dataset.v } })));
+      fxSeg('#fxWinSeg', 'winMode', false); fxSeg('#fxMinSeg', 'minutes', true); fxSeg('#fxGoalSeg', 'goal', true);
       $('#answerForm').onsubmit = (e) => {
         e.preventDefault();
         const v = $('#answerIn').value.trim();

@@ -14,14 +14,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800&family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=202611052114">
+  <link rel="stylesheet" href="style.css?v=202611052145">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-  <script src="config.js?v=202611052114"></script>
-  <script src="questions.js?v=202611052114"></script>
-  <script src="scene.js?v=202611052114" defer></script>
-  <script src="store.js?v=202611052114" defer></script>
-  <script src="game.js?v=202611052114" defer></script>
-  <script src="app.js?v=202611052114" defer></script>
+  <script src="config.js?v=202611052145"></script>
+  <script src="questions.js?v=202611052145"></script>
+  <script src="scene.js?v=202611052145" defer></script>
+  <script src="store.js?v=202611052145" defer></script>
+  <script src="factory.js?v=202611052145" defer></script>
+  <script src="game.js?v=202611052145" defer></script>
+  <script src="app.js?v=202611052145" defer></script>
 </head>
 <body>
   <!-- ============ App shell (dashboard pages) ============ -->
@@ -51,10 +52,27 @@
   <!-- ============ Game page ============ -->
   <section id="gamePage" class="game-page" hidden data-phase="connecting">
     <canvas id="scene" aria-label="Game scene"></canvas>
+    <div id="fxStage" class="fx-stage" hidden>
+      <canvas id="fxCanvas" aria-label="Factory floor"></canvas>
+      <canvas id="fxText" class="scene-text" aria-hidden="true"></canvas>
+      <div class="fx-hud g-card">
+        <canvas id="fxMini" class="fx-mini" aria-label="Map of the factory"></canvas>
+        <div id="fxGoal" class="fx-goal"></div>
+        <ol id="fxBoard" class="fx-board"></ol>
+      </div>
+      <div id="fxPrompt" class="fx-prompt" hidden></div>
+      <div id="fxBanner" class="fx-banner" role="status" hidden></div>
+      <div class="fx-keys-help">Move <kbd>A</kbd><kbd>D</kbd> / <kbd>←</kbd><kbd>→</kbd> · Use <kbd>E</kbd></div>
+      <div class="fx-touch">
+        <button id="fxLeft" aria-label="Move left">◀</button>
+        <button id="fxUse" aria-label="Use">E</button>
+        <button id="fxRight" aria-label="Move right">▶</button>
+      </div>
+    </div>
 
     <header id="gTop" class="g-top">
       <button id="leaveBtn" class="g-btn"><i data-icon="back"></i><span>Leave</span></button>
-      <div class="g-title"><b id="gSet">Pufferfish Party</b><small>🐡 Pufferfish Party · <span id="gRound"></span></small></div>
+      <div class="g-title"><b id="gSet">Pufferfish Party</b><small><span id="gMode">🐡 Pufferfish Party</span> · <span id="gRound"></span></small></div>
       <div class="g-right">
         <div class="g-code"><span>Code</span><b id="gCode">----</b><button id="copyLink2" class="icon-btn" title="Copy invite link"><i data-icon="copy"></i></button></div>
         <span id="gPlayers" class="g-players"></span>
@@ -70,6 +88,7 @@
         <p class="note">Players go to <b>Join Game</b> and enter this code.</p>
         <button id="copyLink" class="btn small"><i data-icon="copy"></i>Copy invite link</button>
         <div id="hostControls" class="host-controls">
+          <div id="pufferOpts" class="opt-group">
           <span class="lbl">Hearts per player</span>
           <div id="heartsSeg" class="seg">
             <button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button><button data-v="4">4</button><button data-v="5">5</button>
@@ -77,6 +96,15 @@
           <span class="lbl">Starting timer</span>
           <div id="timerSeg" class="seg">
             <button data-v="10">10s</button><button data-v="15">15s</button><button data-v="20">20s</button><button data-v="25">25s</button><button data-v="30">30s</button>
+          </div>
+          </div>
+          <div id="factoryOpts" class="opt-group" hidden>
+            <span class="lbl">How to win</span>
+            <div id="fxWinSeg" class="seg"><button data-v="time">Most money</button><button data-v="money">First to goal</button></div>
+            <div id="fxMinRow" class="opt-group"><span class="lbl">Game length</span>
+              <div id="fxMinSeg" class="seg"><button data-v="2">2m</button><button data-v="3">3m</button><button data-v="5">5m</button><button data-v="8">8m</button></div></div>
+            <div id="fxGoalRow" class="opt-group" hidden><span class="lbl">Money goal</span>
+              <div id="fxGoalSeg" class="seg"><button data-v="1000">$1k</button><button data-v="2500">$2.5k</button><button data-v="5000">$5k</button></div></div>
           </div>
           <label class="toggle"><input type="checkbox" id="playToggle" checked><span></span>I'm playing too</label>
           <button id="startBtn" class="btn primary big"><i data-icon="play"></i>Start game</button>
@@ -133,7 +161,7 @@
       <div class="modal-card g-card">
         <div class="trophy">🏆</div>
         <h2 id="winnerName"></h2>
-        <p class="note">survived the Pufferfish Party</p>
+        <p class="note" id="overSub">survived the Pufferfish Party</p>
         <ol id="standings" class="standings"></ol>
         <div class="modal-actions">
           <button id="againBtn" class="btn primary">Play again</button>

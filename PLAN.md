@@ -62,6 +62,32 @@ A left sidebar (a bottom tab bar on phones) links to four pages.
 8. **Out:** a player with no hearts left leaps into the spike pit and watches as a ghost. The last player standing wins. Points only order the rest of the standings.
 9. **Music:** background music loops quietly and dips while the faaah plays.
 
+### Factory rules
+1. **The world:** a side-view factory floor with parallax depth. Far tanks and chimneys move slowest, then mid pipes and vats, then near pipes and chains. A dark foreground of girders and railings moves faster than you.
+2. **Your section:** each player owns one section, in lobby order. From left to right: a grey **spawner** pumps items onto a **conveyor**, the belt carries them into a grey **compactor** where they disappear, then comes your yellow holographic **sell pad** and your **SELL bin**.
+3. **Controls:**
+   - Move with **A/D** or the arrow keys. On touch screens there are on-screen ◀ E ▶ buttons.
+   - Next to an item on *your own* conveyor, a prompt says **Press E to pick up**. You carry **one item at a time**.
+   - Press **E** at your bin to drop the item in.
+4. **Selling:** the bin sells one item every **5 s**, or every **0.5 s** while you stand on your pad. Each sale pops a **+$** next to the bin in the item's rarity color.
+5. **Rarities:**
+
+   | Rarity | Item | Value | Chance |
+   |---|---|---|---|
+   | Common | Clay Pot | $5 | 54% |
+   | Uncommon | Bronze Coin | $12 | 26% |
+   | Rare | Oil Lamp | $30 | 12.5% |
+   | Epic | Gladius | $75 | 5.3% |
+   | Legendary | Golden Aquila | $200 | 1.7% |
+   | Mythical | Orb of Jupiter | $500 | 0.5% |
+
+   A held item shows its rarity above your head for anyone on screen. **Legendary and Mythical** pickups are announced to everyone.
+6. **Stealing:** walk to another player's bin and press E to take a **random** item from it. The owner is notified. You can't take items from someone's hands or their conveyor.
+7. **HUD:** a minimap of every section with colored player dots and your view box, plus a live money leaderboard.
+8. **Winning:** the host picks **Most money** (2, 3, 5 or 8 minutes; richest wins) or **First to goal** ($1k, $2.5k or $5k). The game needs at least 1 player.
+9. **Networking:** the host decides pickups, bins, money and the clock. Conveyor items come from a shared random seed, so every browser shows the same belts without sending them. Positions are sent about 5 times a second, only while moving.
+10. **No Latin questions yet:** Factory doesn't use the set's questions so far.
+
 ### Answer checking
 - Capitals, spaces and macrons are ignored, and *j* counts as *i*.
 - For passive 2nd-person singular answers, the alternate *-re* ending is also accepted.
@@ -87,6 +113,7 @@ GitHub Pages only serves files, so live play goes through **Supabase Realtime** 
 | `app.js` | Router and pages: dashboard, sets, set view, set editor, characters, join, host |
 | `store.js` | Local storage (profile, sets, stats) plus shared UI helpers: pixel icons, toasts, confirm dialogs |
 | `game.js` | Multiplayer, host game logic, chat, drawer, music and sounds |
+| `factory.js` | Factory mode: parallax renderer, conveyors, items, movement, bins and stealing, host rules, minimap |
 | `scene.js` | Pixel renderer: seafloor, rocks, characters, pufferfish, effects |
 | `questions.js` | Built-in sets |
 | `config.js` | Supabase URL and public key |
@@ -96,4 +123,5 @@ GitHub Pages only serves files, so live play goes through **Supabase Realtime** 
 - Share sets with your class (the `is_public` column is ready for this).
 - More characters.
 - Quiz Race (multiple choice) and Team Tide modes.
+- Latin questions in Factory mode.
 - Host tools: kick a player, mute chat.
