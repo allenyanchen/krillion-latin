@@ -5,7 +5,9 @@ window.Scene = (() => {
   'use strict';
 
   // ---------- Customization data ----------
-  const COLORS = ['#ff6b6b', '#ff9f43', '#ffd166', '#7bd389', '#2ec4b6', '#4cc9f0', '#4361ee', '#9b5de5', '#f15bb5', '#e9ecef'];
+  // 18 distinct colors; no two players in a lobby share one.
+  const COLORS = ['#ff6b6b', '#ff9f43', '#ffd166', '#7bd389', '#2ec4b6', '#4cc9f0', '#4361ee', '#9b5de5', '#f15bb5', '#e9ecef',
+    '#c1121f', '#8d5a3b', '#c9f227', '#2f855a', '#a8f0ff', '#ffb5a7', '#cdb4db', '#6c757d'];
   const HATS = [['none', 'None'], ['laurel', 'Laurel'], ['crown', 'Crown'], ['cap', 'Cap'], ['helmet', 'Galea'], ['wizard', 'Wizard'], ['bow', 'Bow']];
   const EYES = [['dot', 'Dot'], ['wide', 'Wide'], ['happy', 'Happy'], ['sleepy', 'Sleepy'], ['shades', 'Shades']];
 
@@ -94,13 +96,20 @@ window.Scene = (() => {
       if (hi > lo) g.fillRect(Math.round(lo), y, Math.round(hi) - Math.round(lo), 1);
     }
   }
+  // Text is drawn on a full-resolution overlay so it stays readable (still a pixel-style font).
+  let tcv = null, tctx = null, dpr = 1, shakeX = 0, shakeY = 0;
   function text(str, x, y, color = '#fff', size = 8, align = 'center', outline = '#0a1020') {
-    ctx.font = `${size}px Silkscreen, monospace`;
-    ctx.textAlign = align; ctx.textBaseline = 'top';
-    x = Math.round(x); y = Math.round(y);
-    ctx.fillStyle = outline;
-    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [1, 1]]) ctx.fillText(str, x + dx, y + dy);
-    ctx.fillStyle = color; ctx.fillText(str, x, y);
+    const k = SCALE * dpr;
+    const px = Math.round(size * k * 0.82);
+    tctx.globalAlpha = ctx.globalAlpha;
+    tctx.font = `700 ${px}px 'Pixelify Sans', sans-serif`;
+    tctx.textAlign = align; tctx.textBaseline = 'top';
+    const X = (x + shakeX) * k, Y = (y + shakeY) * k;
+    tctx.lineJoin = 'round'; tctx.lineWidth = Math.max(3, px * 0.24);
+    tctx.strokeStyle = outline; tctx.strokeText(str, X, Y);
+    tctx.fillStyle = 'rgba(0,0,0,.35)'; tctx.fillText(str, X, Y + Math.max(2, px * 0.08));
+    tctx.fillStyle = color; tctx.fillText(str, X, Y);
+    tctx.globalAlpha = 1;
   }
   function disc(cx, cy, r, color, g = ctx) {
     g.fillStyle = color;
@@ -547,6 +556,8 @@ window.Scene = (() => {
 
   function draw(t) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    tctx.clearRect(0, 0, tcv.width, tcv.height);
+    shakeX = shakeY = 0;
     ctx.drawImage(bg, 0, 0);
     // light rays
     for (let i = 0; i < 4; i++) {
@@ -561,6 +572,7 @@ window.Scene = (() => {
     const sx = shake > 0.3 ? Math.round((Math.random() - 0.5) * shake) : 0;
     const sy = shake > 0.3 ? Math.round((Math.random() - 0.5) * shake) : 0;
     ctx.setTransform(1, 0, 0, 1, sx, sy);
+    shakeX = sx; shakeY = sy;
 
     const inGame = phase === 'intro' || phase === 'play' || phase === 'pop' || phase === 'over';
     const items = [...ents.values()];
@@ -677,6 +689,7 @@ window.Scene = (() => {
   function setActive(on) {
     if (on === active) return;
     active = on;
+    if (!on && tctx) tctx.clearRect(0, 0, tcv.width, tcv.height);
     if (on) { last = now(); resize(); requestAnimationFrame(frame); }
   }
 
@@ -686,6 +699,10 @@ window.Scene = (() => {
     W = Math.ceil(vw / SCALE); H = Math.ceil(vh / SCALE);
     cv.width = W; cv.height = H;
     cv.style.width = W * SCALE + 'px'; cv.style.height = H * SCALE + 'px';
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    tcv.width = Math.round(W * SCALE * dpr); tcv.height = Math.round(H * SCALE * dpr);
+    tcv.style.width = cv.style.width; tcv.style.height = cv.style.height;
+    tctx = tcv.getContext('2d');
     ctx = cv.getContext('2d');
     ctx.imageSmoothingEnabled = false;
     buildBackground();
@@ -698,6 +715,10 @@ window.Scene = (() => {
 
   function init(canvas) {
     cv = canvas;
+    tcv = document.createElement('canvas');
+    tcv.className = 'scene-text';
+    tcv.setAttribute('aria-hidden', 'true');
+    cv.after(tcv);
     resize();
     window.addEventListener('resize', resize);
     cv.addEventListener('mousemove', onMove);

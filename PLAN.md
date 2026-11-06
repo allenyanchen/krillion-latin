@@ -15,7 +15,7 @@ A left sidebar (a bottom tab bar on phones) links to four pages.
 **Hosting** opens its own page:
 1. Pick a set.
 2. Pick a game mode. Pufferfish Party is available now; *Quiz Race* and *Team Tide* are placeholders marked "coming soon".
-3. Choose your settings: hearts per player, and whether you're playing too.
+3. Choose your settings: hearts per player, the starting timer, and whether you're playing too.
 4. **Create room**.
 
 ### Sets and questions
@@ -40,6 +40,9 @@ A left sidebar (a bottom tab bar on phones) links to four pages.
   - **Updates:** the game log.
   - An unread badge shows when the panel is closed.
 - **Customize drawer:** click the arrow at the bottom to slide it up and change your character's color mid-game. It closes automatically when it's your turn.
+- **Unique colors:** no two players in a room share a color, out of 18. Colors other players have are greyed out and crossed through. If you join with a taken color, you're switched to a free one automatically. With more than 18 players, colors have to repeat.
+- **Unique names:** joining with a name someone in the room already has, ignoring capitals and spaces, is turned away with an error on the Join page.
+- **Idle rooms close** after 1 hour with no activity (no answers, throws, chat or joins), and everyone sees a "Room closed" message. When every tab is closed, the room is already gone, because rooms only exist while the host's tab is open.
 
 ### Pufferfish Party rules
 1. Players stand on rocks in a ring around a **spike pit**, and you're always at the bottom of your own screen.
@@ -47,7 +50,7 @@ A left sidebar (a bottom tab bar on phones) links to four pages.
 3. **Only the holder sees the question.** Everyone else sees "Gaius is answering…".
 4. **Correct:** +100 points. Then aim with the mouse and click a player to **throw** the fish.
 5. **Wrong:** a red **−4s** floats up and you get a new question.
-6. **Timer:** it resets for every new holder, starting at 30 s and dropping 1.5 s per turn, down to 5 s. It goes back to 30 s after anyone loses a heart.
+6. **Timer:** it resets for every new holder. It starts at the host's chosen value (10, 15, 20, 25 or 30 s; default **15 s**) and drops **2 s per turn**, down to 5 s. It goes back to the starting value after anyone loses a heart.
 7. **Pop:** the holder loses a heart. Everyone hears **faaah + a vine boom**, and *fah → fahh → fahhh…* grows on screen.
 8. **Out:** a player with no hearts left leaps into the spike pit and watches as a ghost. The last player standing wins. Points only order the rest of the standings.
 9. **Music:** background music loops quietly and dips while the faaah plays.
@@ -73,7 +76,7 @@ GitHub Pages only serves files, so live play goes through **Supabase Realtime** 
 | File | What it does |
 |---|---|
 | `index.html` | App shell (sidebar and main area) plus the game page markup |
-| `style.css` | Pixel UI for every page |
+| `style.css` | UI for every page. Pixelify Sans for headings, buttons and labels; Nunito for body text so it's easy to read. In-game names and numbers are drawn on a sharp text layer over the pixel scene. |
 | `app.js` | Router and pages: dashboard, sets, set view, set editor, characters, join, host |
 | `store.js` | Local storage (profile, sets, stats) plus shared UI helpers: pixel icons, toasts, confirm dialogs |
 | `game.js` | Multiplayer, host game logic, chat, drawer, music and sounds |

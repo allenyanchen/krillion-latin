@@ -14,7 +14,8 @@ window.Game = (() => {
   const V = (document.querySelector('script[src*="game.js"]')?.src.split('?v=')[1]) || '1';
 
   // Tuning
-  const FUSE_START = 30000, FUSE_STEP = 1500, FUSE_MIN = 5000; // per-holder timer, shrinks each turn
+  const FUSE_STEP = 2000, FUSE_MIN = 5000; // per-holder timer starts at the host's setting and shrinks 2s each turn
+  const IDLE_CLOSE = 60 * 60 * 1000;      // close a room after 1 hour with no activity
   const WRONG_PENALTY = 4000, DROP_TIME = 750, THROW_TIME = 700;
   const POP_PAUSE = 3200, INTRO_TIME = 1600, POINTS = 100;
 
@@ -93,7 +94,9 @@ window.Game = (() => {
     const handlers = {
       onMessage: (m) => {
         if (!active) return;
-        if (m.t === 'chat') return Chat.add(m);
+        if (m.t === 'chat') { if (me.host) Host.touch(); return Chat.add(m); }
+        if (m.t === 'closed' && !me.host) return roomClosed();
+        if (m.t === 'reject') { rejectedIds.add(m.id); if (m.id === me.id && !me.host) rejected(m.reason); return; }
         if (me.host) Host.onMessage(m);
         else if (m.t === 'state' && m.s.code === code) { clearTimeout(joinTimer); onState(m.s); }
       },
@@ -111,8 +114,11 @@ window.Game = (() => {
   function rosterNotices(list) {
     const ids = new Set(list.map((r) => r.id));
     if (prevRoster && Date.now() - joinedAt > 2500) {
-      for (const r of list) if (!prevRoster.has(r.id) && r.id !== me.id) Chat.system(`${r.name} joined`);
-      for (const [id, name] of prevRoster) if (!ids.has(id)) Chat.system(`${name} left`);
+      // Wait a moment before announcing a join, in case the host turns them away (duplicate name).
+      for (const r of list) if (!prevRoster.has(r.id) && r.id !== me.id) {
+        setTimeout(() => { if (active && !rejectedIds.has(r.id) && roster.some((x) => x.id === r.id)) Chat.system(`${r.name} joined`); }, 1200);
+      }
+      for (const [id, name] of prevRoster) if (!ids.has(id) && !rejectedIds.has(id)) Chat.system(`${name} left`);
     }
     prevRoster = new Map(list.map((r) => [r.id, r.name]));
   }
@@ -137,11 +143,13 @@ window.Game = (() => {
       this.src = set.questions.filter((q) => q.answers && q.answers[q.correct]);
       this.evN = 0; this.turns = 0;
       S = {
-        phase: 'lobby', code, hostId: me.id, hostPlays: opts.hostPlays !== false, lives: opts.lives || 3,
+        phase: 'lobby', code, hostId: me.id, hostPlays: opts.hostPlays !== false, lives: opts.lives || 3, fuseStart: opts.fuseStart || 15,
         setTitle: set.title, setCount: this.src.length,
         players: [], holder: null, awaitingPass: false, qx: null, qSerial: 0,
         fuseLeft: 0, fuseTotal: 1, round: 0, feed: [], result: null, ev: null, winner: null,
       };
+      this.colorMap = new Map(); this.lastActive = Date.now();
+      this.firstSeen = new Map([[me.id, 0]]); this.seenN = 1; this.rejected = new Set();
       this.iv = [setInterval(() => this.tick(), 200), setInterval(() => this.broadcast(), 3000)];
     },
     stop() { this.iv.forEach(clearInterval); this.iv = []; clearTimeout(this.timer); },
@@ -157,18 +165,53 @@ window.Game = (() => {
       onState(S);
     },
 
+    touch() { this.lastActive = Date.now(); },
+
     rebuildLobby() {
       S.players = roster
-        .filter((r) => S.hostPlays || !r.host)
-        .map((r) => ({ id: r.id, name: r.name, look: r.look, lives: S.lives, score: 0, out: false, gone: false }));
+        .filter((r) => !this.rejected.has(r.id) && (S.hostPlays || !r.host))
+        .map((r) => ({ id: r.id, name: r.name, look: { ...r.look }, want: r.look.c, lives: S.lives, score: 0, out: false, gone: false }));
+      this.assignColors();
+    },
+
+    // Every player gets a different color. Players who already own a color keep it,
+    // anyone asking for a free color gets it, and newcomers with a taken color get the next free one.
+    assignColors() {
+      const prev = this.colorMap, next = new Map(), used = new Set();
+      const ps = S.players.filter((p) => !p.gone);
+      const keep = ps.filter((p) => prev.has(p.id) && prev.get(p.id) === p.want);
+      const change = ps.filter((p) => prev.has(p.id) && prev.get(p.id) !== p.want);
+      const fresh = ps.filter((p) => !prev.has(p.id));
+      const free = () => Scene.COLORS.findIndex((_, i) => !used.has(i));
+      for (const p of [...keep, ...change, ...fresh]) {
+        let c = p.want;
+        if (used.has(c)) c = prev.has(p.id) && !used.has(prev.get(p.id)) ? prev.get(p.id) : free();
+        if (c < 0) c = p.want; // more players than colors: allow a repeat
+        used.add(c); next.set(p.id, c);
+        p.look = { ...p.look, c };
+      }
+      this.colorMap = next;
+    },
+
+    // Names must be unique: whoever arrived later with a taken name is turned away.
+    checkNames() {
+      for (const r of roster) if (!this.firstSeen.has(r.id)) this.firstSeen.set(r.id, this.seenN++);
+      const byName = new Map();
+      const ordered = roster.filter((r) => !this.rejected.has(r.id)).sort((a, b) => this.firstSeen.get(a.id) - this.firstSeen.get(b.id));
+      for (const r of ordered) {
+        const key = String(r.name || '').trim().toLowerCase();
+        if (byName.has(key)) { this.rejected.add(r.id); transport.send({ t: 'reject', id: r.id, reason: 'name' }); }
+        else byName.set(key, r.id);
+      }
     },
 
     onRoster() {
+      this.checkNames();
       if (S.phase === 'lobby') this.rebuildLobby();
       else {
         for (const p of S.players) {
           const r = roster.find((x) => x.id === p.id);
-          if (r) { p.gone = false; p.look = r.look; }
+          if (r) { p.gone = false; p.look = { ...r.look }; p.want = r.look.c; }
           else if (!p.gone) { p.gone = true; this.log(`🔌 ${p.name} left`); }
         }
         if (S.phase === 'play' && this.player(S.holder)?.gone) {
@@ -176,17 +219,21 @@ window.Game = (() => {
           if (a.length >= 2) { const to = pick(a).id; this.ev('drop', { to }); this.giveTo(to, DROP_TIME); }
         }
         if (['intro', 'play', 'pop'].includes(S.phase) && this.alive().length < 2) this.finish();
+        this.assignColors();
       }
+      this.touch();
       this.broadcast();
     },
 
     onMessage(m) {
+      this.touch();
       if (m.t === 'answer') this.answer(m.from, m.text);
       else if (m.t === 'pass') this.pass(m.from, m.to);
     },
 
     configure(o) {
       if (S.phase !== 'lobby') return;
+      this.touch();
       Object.assign(S, o);
       this.rebuildLobby();
       this.broadcast();
@@ -202,6 +249,7 @@ window.Game = (() => {
       this.ev('start');
       this.broadcast();
       clearTimeout(this.timer);
+      this.touch();
       this.timer = setTimeout(() => this.newRound(pick(this.alive()).id), INTRO_TIME);
     },
 
@@ -216,7 +264,7 @@ window.Game = (() => {
     // New holder: fresh (but ever shorter) timer, plus time for the drop/throw animation.
     giveTo(id, animTime) {
       S.holder = id; S.awaitingPass = false; S.result = null;
-      S.fuseTotal = Math.max(FUSE_MIN, FUSE_START - this.turns * FUSE_STEP);
+      S.fuseTotal = Math.max(FUSE_MIN, S.fuseStart * 1000 - this.turns * FUSE_STEP);
       this.turns++;
       this.fuseEnd = Date.now() + S.fuseTotal + animTime;
       this.nextQuestion();
@@ -259,7 +307,16 @@ window.Game = (() => {
       this.broadcast();
     },
 
-    tick() { if (S && S.phase === 'play' && Date.now() >= this.fuseEnd) this.pop(); },
+    tick() {
+      if (!S) return;
+      if (S.phase === 'play' && Date.now() >= this.fuseEnd) this.pop();
+      if (Date.now() - this.lastActive > IDLE_CLOSE) this.closeRoom();
+    },
+
+    closeRoom() {
+      if (transport) transport.send({ t: 'closed' });
+      roomClosed();
+    },
 
     pop() {
       const p = this.player(S.holder);
@@ -415,12 +472,14 @@ window.Game = (() => {
     S = s;
     localFuseEnd = me.host ? Host.fuseEnd : Date.now() + s.fuseLeft;
     Scene.setPhase(s.phase);
+    adoptColor(s);
     handleEvent(s);
     Scene.setPlayers(s.players.map((p) => ({ ...p, isMe: p.id === me.id })), { maxLives: s.lives });
     if (s.phase === 'play') {
       Scene.setTimer(localFuseEnd, s.fuseTotal);
       if (!Scene.fishBusy() && Scene.fishTarget() !== s.holder) Scene.fishHold(s.holder);
     }
+    paintDrawer();
     renderUI();
   }
 
@@ -463,6 +522,7 @@ window.Game = (() => {
     $('#guestWait').hidden = me.host;
     if (me.host) {
       document.querySelectorAll('#heartsSeg button').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === s.lives));
+      document.querySelectorAll('#timerSeg button').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === s.fuseStart));
       $('#playToggle').checked = s.hostPlays;
       const ok = s.players.length >= 2;
       $('#startBtn').disabled = !ok;
@@ -535,14 +595,16 @@ window.Game = (() => {
   function buildDrawer() {
     $('#drawerColors').innerHTML = Scene.COLORS.map((c, i) => `<button class="swatch" data-c="${i}" style="--sw:${c}" aria-label="Color ${i + 1}"></button>`).join('');
     $('#drawerColors').onclick = (e) => {
-      const b = e.target.closest('.swatch'); if (!b) return;
+      const b = e.target.closest('.swatch'); if (!b || b.disabled) return;
       me.look.c = Number(b.dataset.c);
+      lastColorPick = Date.now();
       Store.setLook(me.look);
       paintDrawer();
       if (transport) transport.update();
     };
     $('#drawerHandle').onclick = () => toggleDrawer(!$('#drawer').classList.contains('open'));
   }
+  let lastColorPick = 0;
   function toggleDrawer(open) {
     $('#drawer').classList.toggle('open', open);
     $('#drawerHandle').setAttribute('aria-expanded', open);
@@ -550,7 +612,42 @@ window.Game = (() => {
   }
   function paintDrawer() {
     Scene.drawPreview($('#drawerPreview'), me.look);
-    document.querySelectorAll('#drawerColors .swatch').forEach((b) => b.classList.toggle('on', Number(b.dataset.c) === me.look.c));
+    const takenBy = new Map();
+    if (S) for (const p of S.players) if (p.id !== me.id && !p.gone) takenBy.set(p.look.c, p.name);
+    document.querySelectorAll('#drawerColors .swatch').forEach((b) => {
+      const c = Number(b.dataset.c), owner = takenBy.get(c);
+      b.classList.toggle('on', c === me.look.c);
+      b.classList.toggle('taken', !!owner);
+      b.disabled = !!owner;
+      b.title = owner ? `Taken by ${owner}` : '';
+    });
+  }
+
+  // If the host gave us a different color (ours was taken), switch to it.
+  function adoptColor(s) {
+    const mine = s.players.find((p) => p.id === me.id);
+    if (Date.now() - lastColorPick < 2500) return; // our own change hasn't reached the host yet
+    if (mine && mine.look && mine.look.c !== me.look.c) {
+      me.look = { ...me.look, c: mine.look.c };
+      Store.setLook(me.look);
+      if (transport) transport.update();
+      UI.toast('Someone already had your color, so you got a new one.');
+    }
+  }
+
+  let failCb = null;
+  const rejectedIds = new Set();
+  function rejected(reason) {
+    if (!active) return;
+    const c = code;
+    Game.leave();
+    if (failCb) failCb(reason, c);
+  }
+
+  function roomClosed() {
+    if (!active) return;
+    location.hash = '#/dashboard';
+    UI.confirm('Room closed', 'This room closed after 1 hour with no activity.', 'OK');
   }
 
   // ---------- Lifecycle ----------
@@ -575,6 +672,7 @@ window.Game = (() => {
   return {
     online: ONLINE,
     isActive: () => active,
+    debugState: () => S, // read-only peek used by automated tests
     code: () => code,
     host(set, opts) {
       me.host = true; code = makeCode();
@@ -585,11 +683,11 @@ window.Game = (() => {
       Chat.system(`Room ${code} created. Share the code to invite players!`);
     },
     join(c, onFail) {
-      me.host = false; code = c;
+      me.host = false; code = c; failCb = onFail;
       begin();
       connect(code);
       Chat.system(`Joining room ${code}…`);
-      joinTimer = setTimeout(() => { if (!S && active) { this.leave(); onFail && onFail(); } }, 8000);
+      joinTimer = setTimeout(() => { if (!S && active) { this.leave(); onFail && onFail('missing', c); } }, 8000);
     },
     leave() {
       if (!active) return;
@@ -627,6 +725,7 @@ window.Game = (() => {
       $('#chatToggle').onclick = () => togglePanel(!panelOpen());
       if (window.innerWidth < 900) $('#gamePage').classList.add('panel-closed');
       document.querySelectorAll('#heartsSeg button').forEach((b) => (b.onclick = () => Host.configure({ lives: Number(b.dataset.v) })));
+      document.querySelectorAll('#timerSeg button').forEach((b) => (b.onclick = () => Host.configure({ fuseStart: Number(b.dataset.v) })));
       $('#playToggle').onchange = () => Host.configure({ hostPlays: $('#playToggle').checked });
       $('#startBtn').onclick = () => Host.start();
       $('#againBtn').onclick = () => Host.backToLobby();

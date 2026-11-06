@@ -99,7 +99,7 @@
           <p>Hot potato with a pufferfish. Answer correctly to throw it to someone else, before it pops!</p>
           <ul class="rules">
             <li><i data-icon="check"></i>Type the right answer to earn the throw</li>
-            <li><i data-icon="bolt"></i>The timer shrinks every turn, down to 5 seconds</li>
+            <li><i data-icon="bolt"></i>The timer shrinks 2 seconds every turn, down to 5</li>
             <li><i data-icon="crown"></i>Last player with hearts wins</li>
           </ul>
           <a class="btn primary" href="#/host/subjunctive-all"><i data-icon="play"></i>Host the Subjunctive Set</a>
@@ -361,6 +361,7 @@
           <input id="jCode" class="code-big" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="CODE" aria-label="Game code" value="${esc((codeParam || '').toUpperCase().slice(0, 4))}">
           <label class="field"><span class="lbl">Your name</span><input id="jName" maxlength="14" placeholder="e.g. Marcus" value="${esc(p.name)}"></label>
           <a class="you-row" href="#/characters"><canvas width="22" height="26"></canvas><span>Playing as <b>Bloop</b></span><span class="go">Customize →</span></a>
+          <p class="form-error" id="jErr" role="alert" hidden></p>
           <button class="btn primary big" id="jGo" disabled><i data-icon="join"></i>Join game</button>
           <p class="note">${Game.online ? '🌐 Online multiplayer' : '🧪 Local test mode: rooms only work between tabs in this browser.'}</p>
         </form>
@@ -373,12 +374,26 @@
     name.oninput = check;
     check();
     (code.value.length === 4 ? (name.value ? go : name) : code).focus();
+    if (App.joinError) {
+      const err = App.joinError; App.joinError = null;
+      $('#jErr').textContent = err.msg; $('#jErr').hidden = false;
+      const field = err.field === 'name' ? name : code;
+      field.classList.add('invalid'); field.focus(); field.select();
+      $('#joinForm').classList.add('shake');
+      field.addEventListener('input', () => { field.classList.remove('invalid'); $('#jErr').hidden = true; }, { once: true });
+    }
     $('#joinForm').onsubmit = (e) => {
       e.preventDefault();
       if (go.disabled) { $('#joinForm').classList.remove('shake'); void main.offsetWidth; $('#joinForm').classList.add('shake'); return; }
       const c = code.value.trim().toUpperCase();
       Store.setName(name.value);
-      Game.join(c, () => { UI.toast(`No game found with code ${c}. Check the code and try again.`, 5000); location.hash = '#/join/' + c; });
+      const nm = name.value.trim();
+      Game.join(c, (reason) => {
+        App.joinError = reason === 'name'
+          ? { field: 'name', msg: `Someone in this room is already called “${nm}”. Pick a different name.` }
+          : { field: 'code', msg: `No game found with code ${c}. Check the code and try again.` };
+        location.hash = '#/join/' + c;
+      });
       location.hash = '#/game';
     };
   };
@@ -389,7 +404,7 @@
     if (!set) return notFound('That set doesn’t exist.');
     const n = validQs(set).length;
     const p = Store.profile();
-    let lives = 3;
+    let lives = 3, fuse = 15;
     main.innerHTML = `
       <a class="back" href="#/set/${esc(set.id)}"><i data-icon="back"></i>Back to set</a>
       <header class="page-head"><div><h1>Host a game</h1><p class="sub">Choose a game mode and settings, then open a room.</p></div></header>
@@ -415,6 +430,9 @@
           <label class="field"><span class="lbl">Your name</span><input id="hName" maxlength="14" placeholder="e.g. Magister" value="${esc(p.name)}"></label>
           <span class="lbl">Hearts per player</span>
           <div class="seg" id="hLives">${[1, 2, 3, 4, 5].map((v) => `<button data-v="${v}" class="${v === lives ? 'on' : ''}">${v}</button>`).join('')}</div>
+          <span class="lbl">Starting timer</span>
+          <div class="seg" id="hFuse">${[10, 15, 20, 25, 30].map((v) => `<button data-v="${v}" class="${v === fuse ? 'on' : ''}">${v}s</button>`).join('')}</div>
+          <p class="note">Each new holder starts with this much time, minus 2 seconds per turn (never below 5s).</p>
           <label class="toggle"><input type="checkbox" id="hPlay" checked><span></span>I'm playing too</label>
           <p class="note">Turn this off to just run the game from the front of the room.</p>
           <button class="btn primary big" id="hGo" ${n ? '' : 'disabled'}><i data-icon="play"></i>Create room</button>
@@ -423,11 +441,12 @@
       </div>`;
     $('[data-fish-big]', main).innerHTML = UI.fish('fish-art');
     $('#hLives').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; lives = Number(b.dataset.v); $$('#hLives button').forEach((x) => x.classList.toggle('on', x === b)); };
+    $('#hFuse').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; fuse = Number(b.dataset.v); $$('#hFuse button').forEach((x) => x.classList.toggle('on', x === b)); };
     $('#hGo').onclick = () => {
       const nm = $('#hName').value.trim();
       if (!nm) { $('#hName').classList.add('invalid'); $('#hName').focus(); return UI.toast('Enter your name first.'); }
       Store.setName(nm);
-      Game.host(set, { lives, hostPlays: $('#hPlay').checked });
+      Game.host(set, { lives, fuseStart: fuse, hostPlays: $('#hPlay').checked });
       location.hash = '#/game';
     };
   };

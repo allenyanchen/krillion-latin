@@ -8,15 +8,15 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐡</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=202611051912">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800&family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=202611051930">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-  <script src="config.js?v=202611051912"></script>
-  <script src="questions.js?v=202611051912"></script>
-  <script src="scene.js?v=202611051912" defer></script>
-  <script src="store.js?v=202611051912" defer></script>
-  <script src="game.js?v=202611051912" defer></script>
-  <script src="app.js?v=202611051912" defer></script>
+  <script src="config.js?v=202611051930"></script>
+  <script src="questions.js?v=202611051930"></script>
+  <script src="scene.js?v=202611051930" defer></script>
+  <script src="store.js?v=202611051930" defer></script>
+  <script src="game.js?v=202611051930" defer></script>
+  <script src="app.js?v=202611051930" defer></script>
 </head>
 <body>
   <!-- ============ App shell (dashboard pages) ============ -->
@@ -66,6 +66,10 @@
           <span class="lbl">Hearts per player</span>
           <div id="heartsSeg" class="seg">
             <button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button><button data-v="4">4</button><button data-v="5">5</button>
+          </div>
+          <span class="lbl">Starting timer</span>
+          <div id="timerSeg" class="seg">
+            <button data-v="10">10s</button><button data-v="15">15s</button><button data-v="20">20s</button><button data-v="25">25s</button><button data-v="30">30s</button>
           </div>
           <label class="toggle"><input type="checkbox" id="playToggle" checked><span></span>I'm playing too</label>
           <button id="startBtn" class="btn primary big"><i data-icon="play"></i>Start game</button>
