@@ -5,7 +5,7 @@
 //   on the floor (further forward): holo sell pad + SELL bin
 // Answer multiple-choice questions for energy (host picks +50…+200, default +100). Energy drains 10/s
 // while walking only (standing still is free);
-// at 0 you freeze and drop what you hold. E picks up / drops / steals / grabs floor items.
+// at 0 you freeze (still holding your item) until you answer more. E picks up / drops / steals / grabs floor items.
 //
 // Networking: the host is authoritative for pickups, bins, money, energy and the clock.
 // Conveyor items are deterministic (seeded by section + spawn index). Positions use dead
@@ -30,7 +30,7 @@ window.Factory = (() => {
   const INTERVAL = 1700;                 // ms between spawns
   const RIDE = ((CONV.x1 - CONV.x0) / SPEED) * 1000;
   const WALK = 95, WALKZ = 62, ACCEL = 900;
-  const SLOW_SELL = 5000, FAST_SELL = 1000; // bin on its own: 1 item / 5 s; standing on the pad: 1 / s
+  const SLOW_SELL = 10000, FAST_SELL = 1000; // bin on its own: 1 item / 10 s; standing on the pad: 1 / s
   const COUNTDOWN = 3500;
   const GAIN_DEFAULT = 100, DRAIN_IDLE = 0, DRAIN_WALK = 10;
   const gain = () => (fx && fx.gain) || GAIN_DEFAULT;
@@ -797,7 +797,7 @@ window.Factory = (() => {
       } else if (ev.type === 'drained' || ev.type === 'frozen') {
         const pp = posOf(ev.id);
         if (pp) { floatText(pp.x, pp.z, 40, ev.type === 'drained' ? 'DROPPED!' : 'FROZEN!', '#9fe3ff', 7); burst(pp.x, pp.z, SY(pp.z, 10), 12, ['#bfe9ff', '#ffffff'], 40); }
-        if (ev.id === ctx.me.id) banner(ev.type === 'drained' ? `❄️ Out of energy! You dropped your <b style="color:${it.color}">${esc(it.name)}</b>. Anyone can grab it. Press <kbd>Space</kbd> to answer questions.` : '❄️ Out of energy! Press <kbd>Space</kbd> to answer questions and move again.', 4500);
+        if (ev.id === ctx.me.id) banner(ev.type === 'drained' ? `❄️ Out of energy! You dropped your <b style="color:${it.color}">${esc(it.name)}</b>. Anyone can grab it. Press <kbd>Space</kbd> to answer questions.` : (it ? `❄️ Out of energy! You're still holding your <b style="color:${it.color}">${esc(it.name)}</b>. Press <kbd>Space</kbd> to answer questions and move again.` : '❄️ Out of energy! Press <kbd>Space</kbd> to answer questions and move again.'), 4500);
       } else if (ev.type === 'grab') {
         if (ev.from && ev.from === ctx.me.id && ev.id !== ctx.me.id) banner(`<b>${esc(p ? p.name : 'Someone')}</b> grabbed the <b style="color:${it.color}">${esc(it.name)}</b> you dropped!`);
       } else if (ev.type === 'over') {
@@ -1094,7 +1094,7 @@ window.Factory = (() => {
       const f = S.fx; if (!f) return;
       const T = Date.now();
       if (S.phase === 'play' && T >= f.startAt) {
-        // energy drain: 10/s walking, nothing while standing still. Hitting 0 freezes you and drops what you hold.
+        // energy drain: 10/s walking, nothing while standing still. Hitting 0 freezes you (you keep what you hold).
         const dt = this.lastTick ? Math.min(1, (T - this.lastTick) / 1000) : 0;
         this.lastTick = T;
         for (const id in f.sec) {
@@ -1102,16 +1102,7 @@ window.Factory = (() => {
           if (!p || p.gone || (f.energy[id] || 0) <= 0) continue;
           const e = Math.max(0, f.energy[id] - (this.walking(id) ? DRAIN_WALK : DRAIN_IDLE) * dt);
           f.energy[id] = Math.round(e * 10) / 10;
-          if (e <= 0) {
-            if (f.held[id] != null) {
-              const pp = this.posOf(id) || { x: secX(f.sec[id]) + SW / 2, z: 72 };
-              let x = clampX(pp.x + 16), z = pp.z;
-              if (blocked(x, z)) x = clampX(pp.x - 16);
-              f.floor.push({ fid: ++this.fid, item: f.held[id], x, z, owner: id });
-              this.ev(S, { type: 'drained', id, item: f.held[id] });
-              f.held[id] = null;
-            } else this.ev(S, { type: 'frozen', id });
-          }
+          if (e <= 0) this.ev(S, { type: 'frozen', id, item: f.held[id] }); // you keep what you're holding
         }
         if (T - this.lastPush > 1000) { this.lastPush = T; dirtyAt = dirtyAt || T; }
         for (const id in f.sec) {

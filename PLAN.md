@@ -78,7 +78,7 @@ A left sidebar (a bottom tab bar on phones) links to four pages.
    - To pick up from the belt, stand in front of it.
    - Next to an item on *your own* conveyor, a prompt says **Press E to pick up**. You carry **one item at a time**.
    - Press **E** at your bin to drop the item in.
-4. **Selling:** the bin sells one item every **5 s**, or every **1 s** while you stand on your pad. Each sale pops a **+$** next to the bin in the item's rarity color.
+4. **Selling:** the bin sells one item every **10 s**, or every **1 s** while you stand on your pad. Each sale pops a **+$** next to the bin in the item's rarity color.
 5. **Rarities:**
 
    20 items in 6 tiers. A tier's chance is split evenly between its items.
@@ -97,7 +97,7 @@ A left sidebar (a bottom tab bar on phones) links to four pages.
    A held item shows its rarity above your head for anyone on screen. **Legendary and Mythical** pickups are announced to everyone.
 6. **Energy and questions:**
    - Everyone starts with **0 energy**. A correct answer gives **+100** by default (the host can pick +50, +100, +150 or +200 when hosting or in the lobby). Energy drains **10 per second** while walking; standing still costs nothing.
-   - At **0 you're frozen** (shown in an ice block). If you're holding an item it **drops on the floor next to you**, and anyone (including you, later) can press E to take it.
+   - At **0 you're frozen** (shown in an ice block). You **keep holding** your item while frozen (nobody can take it from your hands); answer questions to move again.
    - Press **Space** or click **Answer questions** to open a **full-screen question screen**: the set's question at the top, its answer choices as big colored tiles below. Click a tile or press **1–4**. Right answers flash green with "+100 ⚡". Wrong ones flash red and show the correct answer. The next question appears automatically. **Space** or **Esc** takes you back to the factory.
    - The screen opens automatically when the game starts. Each player gets their own shuffled order of questions. The host keeps the right answers and checks them.
 7. **Stealing:** walk to another player's bin and press E to take a **random** item from it. The owner is notified. You can't take items from someone's hands or their conveyor.
