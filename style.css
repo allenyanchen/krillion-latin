@@ -542,7 +542,7 @@ h1, h2, h3, .btn, .nav a, .brand-text, .seg button, .tabs button, .g-btn, .g-tit
 #fxCanvas { position: absolute; inset: 0 auto auto 0; display: block; image-rendering: pixelated; }
 .fx-hud { position: absolute; z-index: 3; top: 84px; left: 12px; width: 260px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 .game-page[data-phase="lobby"] .fx-hud, .game-page[data-phase="connecting"] .fx-hud { display: none; }
-.fx-mini { width: 100%; height: 46px; background: var(--well); border-radius: 2px; box-shadow: inset 0 0 0 2px var(--line); display: block; }
+.fx-mini { width: 100%; height: 64px; display: block; image-rendering: pixelated; image-rendering: crisp-edges; background: #070b12; }
 .fx-goal { position: relative; font-family: 'Pixelify Sans', sans-serif; font-weight: 600; font-size: .85rem; color: var(--muted); }
 .fx-goal:empty { display: none; }
 .fx-goal i { display: block; height: 6px; margin-top: 4px; background: var(--accent); box-shadow: 0 0 0 2px var(--edge); transition: width .4s; }
@@ -697,6 +697,7 @@ input[type=color] { width: 44px; height: 40px; padding: 3px; cursor: pointer; }
 .contrast-list li.bad em { color: var(--bad); }
 html[data-mode="light"] .contrast-list li.ok em { color: #237a45; }
 html[data-mode="light"] .card, html[data-mode="light"] .g-card { box-shadow: 0 0 0 var(--px) var(--edge), inset 0 var(--px) 0 var(--hi), inset 0 calc(var(--px) * -1) 0 var(--edge-2), 0 calc(var(--px) * 2) 0 var(--px) rgba(30, 40, 60, .15); }
+html[data-mode="light"] .card.mode.selected, html[data-mode="light"] .card.char-card.selected { box-shadow: 0 0 0 var(--px) var(--accent), inset 0 var(--px) 0 var(--hi), inset 0 calc(var(--px) * -1) 0 var(--edge-2), 0 calc(var(--px) * 2) 0 var(--px) rgba(30, 40, 60, .15); }
 html[data-mode="light"] .brand-text, html[data-mode="light"] .page-head h1, html[data-mode="light"] .feature h2 { text-shadow: none; }
 @media (max-width: 900px) { .theme-custom { grid-template-columns: 1fr; } }
 @media (max-width: 760px) { .mobile-only { display: list-item; } .profile-top { flex-direction: column; text-align: center; } .profile-id { align-items: center; } }

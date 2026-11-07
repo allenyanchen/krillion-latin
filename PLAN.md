@@ -78,17 +78,21 @@ A left sidebar (a bottom tab bar on phones) links to four pages.
    - To pick up from the belt, stand in front of it.
    - Next to an item on *your own* conveyor, a prompt says **Press E to pick up**. You carry **one item at a time**.
    - Press **E** at your bin to drop the item in.
-4. **Selling:** the bin sells one item every **5 s**, or every **0.5 s** while you stand on your pad. Each sale pops a **+$** next to the bin in the item's rarity color.
+4. **Selling:** the bin sells one item every **5 s**, or every **1 s** while you stand on your pad. Each sale pops a **+$** next to the bin in the item's rarity color.
 5. **Rarities:**
 
-   | Rarity | Item | Value | Chance |
+   20 items in 6 tiers. A tier's chance is split evenly between its items.
+
+   | Rarity | Items | Value | Tier chance |
    |---|---|---|---|
-   | Common | Clay Pot | $5 | 54% |
-   | Uncommon | Bronze Coin | $12 | 26% |
-   | Rare | Oil Lamp | $30 | 12.5% |
-   | Epic | Gladius | $75 | 5.3% |
-   | Legendary | Golden Aquila | $200 | 1.7% |
-   | Mythical | Orb of Jupiter | $500 | 0.5% |
+   | Common | Clay Pot, Bread Loaf, Wax Tablet, Amphora, Wool Ball | $4–7 | 54% |
+   | Uncommon | Bronze Coin, Papyrus Scroll, Leather Sandal, Grape Bunch | $10–14 | 26% |
+   | Rare | Oil Lamp, Silver Denarius, Mosaic Tile, Bronze Helmet | $28–34 | 12.5% |
+   | Epic | Gladius, Laurel Wreath, Marble Bust | $70–85 | 5.3% |
+   | Legendary | Golden Aquila, Golden Lyre | $200–220 | 1.7% |
+   | Mythical | Orb of Jupiter, Trident of Neptune | $500–550 | 0.5% |
+
+   Which item comes next is decided by a seeded hash of (game seed, player section, spawn number), so every browser agrees, each player's conveyor gets its own sequence, and an item that would repeat the one just before it is re-rolled once.
 
    A held item shows its rarity above your head for anyone on screen. **Legendary and Mythical** pickups are announced to everyone.
 6. **Energy and questions:**

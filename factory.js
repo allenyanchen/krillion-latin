@@ -30,27 +30,56 @@ window.Factory = (() => {
   const INTERVAL = 1700;                 // ms between spawns
   const RIDE = ((CONV.x1 - CONV.x0) / SPEED) * 1000;
   const WALK = 95, WALKZ = 62, ACCEL = 900;
-  const SLOW_SELL = 5000, FAST_SELL = 500;
+  const SLOW_SELL = 5000, FAST_SELL = 1000; // bin on its own: 1 item / 5 s; standing on the pad: 1 / s
   const COUNTDOWN = 3500;
   const GAIN_DEFAULT = 100, DRAIN_IDLE = 0, DRAIN_WALK = 10;
   const gain = () => (fx && fx.gain) || GAIN_DEFAULT;
   const TILE_COLORS = ['amber', 'teal', 'pink', 'blue', 'purple', 'green', 'orange', 'slate'];
 
+  // 20 items in 6 tiers. r = tier rank (0 Common … 5 Mythical); w = spawn weight (tier odds split evenly).
   const ITEMS = [
-    { name: 'Clay Pot', tier: 'Common', color: '#c3cdd8', value: 5, w: 54,
+    { name: 'Clay Pot', tier: 'Common', r: 0, color: '#c3cdd8', value: 5, w: 10.8,
       map: ['..OOOO..', '...oo...', '..oooo..', '.ohoooo.', '.ohoooO.', '.ooooOO.', '..oOOO..', '...OO...'], pal: { o: '#c8743c', O: '#8a4a22', h: '#eaa36d' } },
-    { name: 'Bronze Coin', tier: 'Uncommon', color: '#7bd389', value: 12, w: 26,
+    { name: 'Bread Loaf', tier: 'Common', r: 0, color: '#c3cdd8', value: 4, w: 10.8,
+      map: ['........', '..BBBB..', '.BhhbbB.', 'BhbhbbbB', 'BbbbhbbB', 'BbbbbbbB', '.BBBBBB.', '........'], pal: { b: '#d9a05b', B: '#9a6330', h: '#f3d19a' } },
+    { name: 'Wax Tablet', tier: 'Common', r: 0, color: '#c3cdd8', value: 6, w: 10.8,
+      map: ['WWWWWWWW', 'WxxxxxxW', 'WxllxlxW', 'WxxxxxxW', 'WxlxllxW', 'WxxxxxxW', 'WWWWWWWW', '........'], pal: { W: '#8a5a2c', x: '#3b3f4a', l: '#c9b27a' } },
+    { name: 'Amphora', tier: 'Common', r: 0, color: '#c3cdd8', value: 7, w: 10.8,
+      map: ['...OO...', '.O.oo.O.', '.OOooOO.', '..ohoo..', '.ohooOo.', '.ohoooO.', '..oooO..', '...OO...'], pal: { o: '#b8673a', O: '#7a3e1c', h: '#e59a68' } },
+    { name: 'Wool Ball', tier: 'Common', r: 0, color: '#c3cdd8', value: 5, w: 10.8,
+      map: ['..WWWW..', '.WwwhwW.', 'WwhwwwwW', 'WwwwhwwW', 'WwhwwwwW', 'WwwwwhwW', '.WwwwwW.', '..WWWW..'], pal: { w: '#efe6d8', W: '#b8ab96', h: '#ffffff' } },
+    { name: 'Bronze Coin', tier: 'Uncommon', r: 1, color: '#7bd389', value: 12, w: 6.5,
       map: ['..YYYY..', '.YhhyyY.', 'YhyYYyyY', 'YhyYyyyY', 'YyyYYyyY', 'YyyyyyyY', '.YyyyyY.', '..YYYY..'], pal: { y: '#d08a3c', Y: '#8a5520', h: '#f3c07a' } },
-    { name: 'Oil Lamp', tier: 'Rare', color: '#4cc9f0', value: 30, w: 12.5,
+    { name: 'Papyrus Scroll', tier: 'Uncommon', r: 1, color: '#7bd389', value: 14, w: 6.5,
+      map: ['r......r', 'rPPPPPPr', 'rpllplpr', 'rpppppPr', 'rplplppr', 'rpppppPr', 'rPPPPPPr', 'r......r'], pal: { p: '#ead8a6', P: '#b09452', r: '#7a4a24', l: '#6b5a3a' } },
+    { name: 'Leather Sandal', tier: 'Uncommon', r: 1, color: '#7bd389', value: 11, w: 6.5,
+      map: ['...s....', '..sLs...', '.s.L.s..', '.LLLLL..', '.llllll.', 'Llllllll', 'LLLLLLLL', '........'], pal: { l: '#a8693a', L: '#6b3e1c', s: '#d89a5c' } },
+    { name: 'Grape Bunch', tier: 'Uncommon', r: 1, color: '#7bd389', value: 10, w: 6.5,
+      map: ['....sg..', '...sgg..', '.vVvVv..', '.hvvvVv.', '..vhvV..', '..vvVv..', '...vV...', '....v...'], pal: { v: '#8e4bd0', V: '#5a2690', h: '#c79bf5', g: '#6cbf4a', s: '#7a4a24' } },
+    { name: 'Oil Lamp', tier: 'Rare', r: 2, color: '#4cc9f0', value: 30, w: 3.1,
       map: ['......f.', '.....rf.', '......B.', '..bbbbb.', '.bhbbbbB', 'bbbbbbB.', '.BBBBB..', '..BB....'], pal: { b: '#9fb8cf', B: '#5d7690', h: '#e3f1ff', f: '#ffd166', r: '#ff7b3a' } },
-    { name: 'Gladius', tier: 'Epic', color: '#b77dff', value: 75, w: 5.3,
+    { name: 'Silver Denarius', tier: 'Rare', r: 2, color: '#4cc9f0', value: 34, w: 3.1,
+      map: ['..SSSS..', '.ShsssS.', 'SssfffsS', 'SsffsfsS', 'SsfffssS', 'SssfsssS', '.SsssSS.', '..SSSS..'], pal: { s: '#dfe6ee', S: '#8a96a3', h: '#ffffff', f: '#b9c3cf' } },
+    { name: 'Mosaic Tile', tier: 'Rare', r: 2, color: '#4cc9f0', value: 28, w: 3.1,
+      map: ['KKKKKKKK', 'KabKcdaK', 'KdcKbacK', 'KKKKKKKK', 'KcaKdbcK', 'KbdKacdK', 'KKKKKKKK', '........'], pal: { a: '#2ec4b6', b: '#ff7b3a', c: '#ffd166', d: '#4a6cd8', K: '#2a2f3a' } },
+    { name: 'Bronze Helmet', tier: 'Rare', r: 2, color: '#4cc9f0', value: 32, w: 3.1,
+      map: ['.rrrrrr.', 'rrRRRRrr', '..YYYY..', '.YhyyyY.', 'YhyyyyyY', 'Yyy..yyY', 'Yy....yY', 'YY....YY'], pal: { y: '#d08a3c', Y: '#8a5520', h: '#f3c07a', r: '#d8323c', R: '#8e1a22' } },
+    { name: 'Gladius', tier: 'Epic', r: 3, color: '#b77dff', value: 75, w: 1.75,
       map: ['.......s', '......sS', '.....sS.', '....sS..', '.g.sS...', '..gg....', '.wg.g...', 'w.......'], pal: { s: '#eef3f8', S: '#9aa7b5', g: '#ffd166', w: '#7a4a24' } },
-    { name: 'Golden Aquila', tier: 'Legendary', color: '#ffb238', value: 200, w: 1.7,
+    { name: 'Laurel Wreath', tier: 'Epic', r: 3, color: '#b77dff', value: 70, w: 1.75,
+      map: ['..gGGg..', '.g....g.', 'G......G', 'g......g', 'G......G', '.g....g.', '..gyyg..', '...yy...'], pal: { g: '#7fd35a', G: '#3e8a2a', y: '#ffd166' } },
+    { name: 'Marble Bust', tier: 'Epic', r: 3, color: '#b77dff', value: 85, w: 1.75,
+      map: ['..MMMM..', '.MmmhmM.', '.MmMmmM.', '.MmmmmM.', '..MmmM..', '.MmmmmmM', '..pppp..', '.pppppp.'], pal: { m: '#eef0f3', M: '#a9b0ba', h: '#ffffff', p: '#7c8592' } },
+    { name: 'Golden Aquila', tier: 'Legendary', r: 4, color: '#ffb238', value: 200, w: 0.85,
       map: ['G.....G.', 'GG.gg.GG', 'gGGggGGg', '.gggggg.', '..gGGg..', '...gg...', '..g..g..', '.GGGGGG.'], pal: { g: '#ffd166', G: '#c99a12' } },
-    { name: 'Orb of Jupiter', tier: 'Mythical', color: '#ff5dc8', value: 500, w: 0.5,
+    { name: 'Golden Lyre', tier: 'Legendary', r: 4, color: '#ffb238', value: 220, w: 0.85,
+      map: ['G......G', 'g......g', 'gGGGGGGg', 'gs.s.s.g', 'gs.s.s.g', '.gs.s.g.', '..gGGg..', '...GG...'], pal: { g: '#ffd166', G: '#c99a12', s: '#fff3c4' } },
+    { name: 'Orb of Jupiter', tier: 'Mythical', r: 5, color: '#ff5dc8', value: 500, w: 0.25,
       map: ['..PPPP..', '.PpphhP.', 'PppphwhP', 'PpppphpP', 'PpppppPP', 'PPppPPP.', '.PPPPP..', '..ggg...'], pal: { p: '#ff5dc8', P: '#9b1d7a', h: '#ffd6f2', w: '#ffffff', g: '#ffd166' } },
+    { name: 'Trident of Neptune', tier: 'Mythical', r: 5, color: '#ff5dc8', value: 550, w: 0.25,
+      map: ['.t..t..t', '.T..T..T', '.TtttttT', '....s...', '....s...', '....s...', '....s...', '....T...'], pal: { t: '#4ce0ff', T: '#1a7fa8', s: '#ffd166' } },
   ];
-  const NOTIFY_TIER = 4; // Legendary and up: everyone is told
+  const NOTIFY_TIER = 4; // tier rank: Legendary and up, everyone is told
   const TOTAL_W = ITEMS.reduce((a, it) => a + it.w, 0);
 
   // Tiny pixel font so labels painted on machines move exactly with them.
@@ -65,15 +94,21 @@ window.Factory = (() => {
   // ---------- helpers ----------
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const lerp = (a, b, t) => a + (b - a) * t;
-  function hash32(a, b, c) {
-    let h = (a * 374761393 + b * 668265263 + c * 2147483647) >>> 0;
-    h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16;
-    return (h >>> 0) / 4294967296;
+  const mix32 = (h) => { h ^= h >>> 16; h = Math.imul(h, 0x7feb352d); h ^= h >>> 15; h = Math.imul(h, 0x846ca68b); h ^= h >>> 16; return h >>> 0; };
+  function hash32(a, b, c, d = 0) {
+    let h = mix32(a >>> 0);
+    h = mix32((h ^ Math.imul(b + 1, 0x9e3779b9)) >>> 0);
+    h = mix32((h ^ Math.imul(c + 1, 0x85ebca6b)) >>> 0);
+    h = mix32((h ^ Math.imul(d + 1, 0xc2b2ae35)) >>> 0);
+    return h / 4294967296;
   }
+  const pickItem = (r) => { r *= TOTAL_W; for (let i = 0; i < ITEMS.length; i++) { if ((r -= ITEMS[i].w) < 0) return i; } return 0; };
+  // Which item spawn k on section sec is. Deterministic (every browser agrees), different for every
+  // player's conveyor, and re-rolled once if it would repeat the item just before it.
   function rarityFor(seed, sec, k) {
-    let r = hash32(seed, sec, k) * TOTAL_W;
-    for (let i = 0; i < ITEMS.length; i++) { if ((r -= ITEMS[i].w) < 0) return i; }
-    return 0;
+    const a = pickItem(hash32(seed, sec, k));
+    if (k > 0 && a === pickItem(hash32(seed, sec, k - 1))) return pickItem(hash32(seed, sec, k, 1));
+    return a;
   }
   const money = (n) => '$' + Math.round(n).toLocaleString();
   const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -441,8 +476,8 @@ window.Factory = (() => {
       const wx = secX(s) + CONV.x0 + (age / 1000) * SPEED;
       const ix = SX(wx, CONV.zi), iy = SY(CONV.zi, CONV.h);
       ellipse(ix, iy, 4, 1, 'rgba(0,0,0,.35)');
-      if (item >= 2) { g.globalAlpha = 0.25 + 0.1 * Math.sin(t / 200 + k); ellipse(ix, iy - 5, 7, 6, ITEMS[item].color); g.globalAlpha = 1; }
-      if (item >= 3 && Math.random() < 0.06) parts.push({ x: wx - 4 + Math.random() * 8, z: CONV.zi, y: iy - 10, vx: 0, vy: -12, life: 0, max: 0.7, c: ITEMS[item].color, s: 1 });
+      if (ITEMS[item].r >= 2) { g.globalAlpha = 0.25 + 0.1 * Math.sin(t / 200 + k); ellipse(ix, iy - 5, 7, 6, ITEMS[item].color); g.globalAlpha = 1; }
+      if (ITEMS[item].r >= 3 && Math.random() < 0.06) parts.push({ x: wx - 4 + Math.random() * 8, z: CONV.zi, y: iy - 10, vx: 0, vy: -12, life: 0, max: 0.7, c: ITEMS[item].color, s: 1 });
       sprite(item, ix - 4, iy - 9);
     }
   }
@@ -741,11 +776,11 @@ window.Factory = (() => {
       const p = player(ev.id), it = ev.item != null ? ITEMS[ev.item] : null;
       if (ev.type === 'sold') {
         const s = fx.sec[ev.id]; if (s == null) continue;
-        floatText(secX(s) + BIN_C.x, BIN.z1, BIN.h + 12, '+' + money(it.value), it.color, ev.item >= 4 ? 10 : 7);
-        burst(secX(s) + BIN_C.x, BIN.z1, SY(BIN.z1, BIN.h + 2), ev.item >= 3 ? 14 : 6, ['#ffd166', it.color], 45);
+        floatText(secX(s) + BIN_C.x, BIN.z1, BIN.h + 12, '+' + money(it.value), it.color, it.r >= 4 ? 10 : 7);
+        burst(secX(s) + BIN_C.x, BIN.z1, SY(BIN.z1, BIN.h + 2), it.r >= 3 ? 14 : 6, ['#ffd166', it.color], 45);
       } else if (ev.type === 'pick') {
         if (ev.id === ctx.me.id) pending = null;
-        if (ev.item >= NOTIFY_TIER) banner(`✨ ${ev.id === ctx.me.id ? 'You' : esc(p ? p.name : 'Someone')} picked up a <b style="color:${it.color}">${it.tier.toUpperCase()}</b> ${esc(it.name)}!`);
+        if (it.r >= NOTIFY_TIER) banner(`✨ ${ev.id === ctx.me.id ? 'You' : esc(p ? p.name : 'Someone')} picked up a <b style="color:${it.color}">${it.tier.toUpperCase()}</b> ${esc(it.name)}!`);
       } else if (ev.type === 'pickFail') {
         if (ev.id === ctx.me.id) { pending = null; prompt = null; }
       } else if (ev.type === 'drop') {
@@ -792,29 +827,61 @@ window.Factory = (() => {
     if (f.winMode === 'time') { const left = Math.max(0, f.endAt - T); return `⏱ ${Math.floor(left / 60000)}:${String(Math.floor((left % 60000) / 1000)).padStart(2, '0')} left`; }
     return `Goal ${money(f.goal)}`;
   }
+  // Pixel-art map: drawn at half resolution (1 map pixel = 2 screen pixels) and scaled up crisp.
   function drawMinimap() {
     const c = $('#fxMini'); if (!c || !fx) return;
-    const world = worldW();
-    const cw = c.clientWidth, ch = c.clientHeight;
-    const k = Math.min(2, window.devicePixelRatio || 1);
-    if (c.width !== Math.round(cw * k)) { c.width = Math.round(cw * k); c.height = Math.round(ch * k); }
-    const m = c.getContext('2d'); m.setTransform(k, 0, 0, k, 0, 0);
-    m.clearRect(0, 0, cw, ch);
-    const mx = (x) => 4 + (x / world) * (cw - 8), mz = (z) => 4 + (z / DZ) * (ch - 8);
+    const PXS = 2, w = Math.max(40, Math.floor(c.clientWidth / PXS)), h = Math.max(16, Math.floor(c.clientHeight / PXS));
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+    const m = c.getContext('2d'), t = performance.now();
+    const R = (x, y, ww, hh, col) => { m.fillStyle = col; m.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(ww)), Math.max(1, Math.round(hh))); };
+    const world = worldW(), WALL = 5, x0 = 2, y0 = 2, iw = w - 4, ih = h - 4;
+    const mx = (x) => x0 + Math.floor((x / world) * iw), mz = (z) => y0 + WALL + Math.floor((clamp(z, 0, DZ) / DZ) * (ih - WALL - 1));
+    // frame: dark edge, bevel highlight, floor
+    R(0, 0, w, h, '#070b12'); R(1, 1, w - 2, h - 2, '#2a3a52'); R(x0, y0, iw, ih, '#121c2b');
+    for (let y = y0 + WALL; y < y0 + ih; y += 2) for (let x = x0 + ((y >> 1) & 1); x < x0 + iw; x += 2) R(x, y, 1, 1, '#16233a'); // checker floor
     for (const id in fx.sec) {
-      const s = fx.sec[id], x0 = mx(secX(s)), x1 = mx(secX(s) + SW);
-      m.fillStyle = colorOf(id); m.globalAlpha = 0.2; m.fillRect(x0, 4, x1 - x0 - 1, ch - 8); m.globalAlpha = 0.55;
-      m.fillRect(mx(secX(s) + CONV.x0), mz(0), mx(secX(s) + COMP.x1) - mx(secX(s) + CONV.x0), 3);
-      m.fillStyle = '#5cbf9d'; m.fillRect(mx(secX(s) + BIN.x0), mz(BIN.z0), Math.max(2, mx(secX(s) + BIN.x1) - mx(secX(s) + BIN.x0)), mz(BIN.z1) - mz(BIN.z0));
-      m.globalAlpha = 1;
+      const s = fx.sec[id], col = colorOf(id), sx0 = mx(secX(s)), sx1 = mx(secX(s) + SW);
+      // owner tint + back wall
+      m.globalAlpha = 0.18; R(sx0, y0 + WALL, sx1 - sx0, ih - WALL, col); m.globalAlpha = 1;
+      R(sx0, y0, sx1 - sx0, WALL, '#1d2a3e'); R(sx0, y0, sx1 - sx0, 1, col);
+      // spawner, belt (animated dashes), compactor
+      const bx0 = mx(secX(s) + CONV.x0), bx1 = mx(secX(s) + CONV.x1);
+      R(mx(secX(s) + SPAWNER.x0), y0 + 1, Math.max(2, bx0 - mx(secX(s) + SPAWNER.x0)), WALL - 1, '#7d8a99');
+      R(bx0, y0 + 3, bx1 - bx0, 2, '#39424e');
+      const off = Math.floor(t / 180) % 3;
+      for (let x = bx0 + off; x < bx1; x += 3) R(x, y0 + 3, 1, 1, '#5d6b7c');
+      R(bx1, y0 + 1, Math.max(2, mx(secX(s) + COMP.x1) - bx1), WALL - 1, '#596574');
+      // items riding the belt (only the rarer ones glow on the map)
+      const kMax = Math.floor((now() - fx.startAt - offsetFor(s)) / INTERVAL), taken = new Set((fx.taken && fx.taken[s]) || []);
+      if (gameLive()) for (let k = Math.max(0, kMax - 14); k <= kMax; k++) {
+        const age = now() - spawnTime(fx, s, k); if (age < 0 || age > RIDE || taken.has(k)) continue;
+        const it = ITEMS[rarityFor(fx.seed, s, k)];
+        R(mx(secX(s) + CONV.x0 + (age / 1000) * SPEED), y0 + 3, 1, 1, it.r >= 2 ? it.color : '#c3cdd8');
+      }
+      // sell pad (blinks while the owner stands on it) and bin with a fill bar
+      const fast = fx.fast && fx.fast[id];
+      const padC = fast && Math.floor(t / 250) % 2 ? '#fff3c4' : '#ffd166', pdx = mx(secX(s) + PAD.x), pdz = mz(PAD.z);
+      R(pdx - 2, pdz - 1, 5, 3, '#070b12'); R(pdx - 3, pdz, 7, 1, '#070b12'); R(pdx - 1, pdz - 1, 3, 3, '#b8860b'); R(pdx - 2, pdz, 5, 1, padC); R(pdx - 1, pdz, 3, 1, padC);
+      const binX = mx(secX(s) + BIN.x0), binW = Math.max(3, mx(secX(s) + BIN.x1) - binX), binY = mz(BIN.z0), binH = Math.max(3, mz(BIN.z1) - binY);
+      R(binX - 1, binY - 1, binW + 2, binH + 2, '#070b12'); R(binX, binY, binW, binH, '#2d6b55');
+      const n = ((fx.bins && fx.bins[id]) || []).length;
+      if (n) R(binX, binY + binH - Math.min(binH, Math.ceil(n / 2)), binW, Math.min(binH, Math.ceil(n / 2)), '#5cbf9d');
+      if (s > 0) for (let y = y0 + WALL; y < y0 + ih; y++) R(sx0, y, 1, 1, Math.floor(y / 2) % 2 ? '#ffd166' : '#070b12'); // hazard-stripe divider
     }
-    m.strokeStyle = 'rgba(255,255,255,.55)'; m.lineWidth = 1;
-    m.strokeRect(mx(cam) + 0.5, 2.5, Math.max(4, mx(cam + W) - mx(cam)), ch - 5);
+    // dropped items sparkle
+    for (const it of fx.floor || []) if (Math.floor(t / 300 + it.fid) % 2) R(mx(it.x), mz(it.z), 1, 1, ITEMS[it.item].color);
+    // camera view: pixel corner brackets
+    const vx0 = clamp(mx(cam), x0, x0 + iw - 1), vx1 = clamp(mx(cam + W) - 1, x0, x0 + iw - 1), vy0 = y0, vy1 = y0 + ih - 1, L = 3;
+    for (const [x, y, dx, dy] of [[vx0, vy0, 1, 1], [vx1, vy0, -1, 1], [vx0, vy1, 1, -1], [vx1, vy1, -1, -1]]) {
+      R(dx > 0 ? x : x - L + 1, y, L, 1, '#ffffff'); R(x, dy > 0 ? y : y - L + 1, 1, L, '#ffffff');
+    }
+    // players: outlined 2×2 markers; you get a bobbing white arrow
     for (const p of S.players) {
       const pos = posOf(p.id); if (!pos || p.gone) continue;
-      m.fillStyle = '#070b12'; m.fillRect(mx(pos.x) - 3, mz(pos.z) - 3, 6, 6);
-      m.fillStyle = Scene.COLORS[p.look.c]; m.fillRect(mx(pos.x) - 2, mz(pos.z) - 2, 4, 4);
-      if (p.id === ctx.me.id) { m.fillStyle = '#fff'; m.fillRect(mx(pos.x) - 1, mz(pos.z) - 6, 2, 2); }
+      const px = mx(pos.x), pz = mz(pos.z);
+      R(px - 2, pz - 2, 4, 4, '#070b12'); R(px - 1, pz - 1, 2, 2, Scene.COLORS[p.look.c] || '#fff');
+      if (p.id === ctx.me.id) { const by = pz - 5 - (Math.floor(t / 400) % 2); R(px - 1, by, 2, 1, '#ffffff'); R(px - 1, by - 1, 2, 1, '#070b12'); }
+      else if (frozen(p.id)) R(px, pz - 1, 1, 1, '#bfe9ff');
     }
   }
 
