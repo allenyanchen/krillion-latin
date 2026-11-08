@@ -76,9 +76,9 @@ window.Theme = (() => {
         line: oklch(0.83, cs * 0.8, hs), hi: '#ffffff', edge: oklch(0.32, cs, hs), 'edge-2': oklch(0.87, cs * 0.6, hs),
         'side-1': oklch(0.945, cs * 0.5, hs), 'side-2': oklch(0.915, cs * 0.6, hs), 'btn-shade': oklch(0.82, cs * 0.8, hs),
       });
-      k.ink = ensure(0.25, 0.02, hs, [k.panel, k['panel-3'], k.bg], 7, -1);
-      k.muted = ensure(0.47, 0.03, hs, [k.panel, k['panel-3'], k.bg], 4.5, -1);
-      k.dim = ensure(0.58, 0.03, hs, [k.panel, k.bg], 3, -1);
+      k.ink = ensure(0.25, 0.02, hs, [k.panel, k['panel-3'], k.bg, k.well], 7, -1);
+      k.muted = ensure(0.47, 0.03, hs, [k.panel, k['panel-2'], k['panel-3'], k.bg, k.well, k['well-2']], 4.5, -1);
+      k.dim = ensure(0.56, 0.03, hs, [k.panel, k['panel-2'], k.bg, k.well, k['well-2'], k['side-1'], k['side-2']], 4.5, -1);
       k.accent = ensure(Math.min(La, 0.68), Ca, ha, [k.panel], 3, -1);
       k['accent-hi'] = ensure(Math.min(La, 0.52), Math.min(Ca, 0.17), ha, [k.panel, k.well, k['panel-3']], 4.5, -1);
     } else {
@@ -88,9 +88,9 @@ window.Theme = (() => {
         line: oklch(0.39, cs * 1.25, hs), hi: oklch(0.45, cs * 1.35, hs), edge: oklch(0.115, cs * 0.8, hs), 'edge-2': oklch(0.2, cs, hs),
         'side-1': oklch(0.235, cs, hs), 'side-2': oklch(0.185, cs, hs), 'btn-shade': oklch(0.245, cs, hs),
       });
-      k.ink = ensure(0.95, 0.012, hs, [k.panel, k['panel-3']], 7, 1);
-      k.muted = ensure(0.78, 0.035, hs, [k.panel, k['panel-3'], k.well], 4.5, 1);
-      k.dim = ensure(0.63, 0.03, hs, [k.panel, k.well], 3, 1);
+      k.ink = ensure(0.95, 0.012, hs, [k.panel, k['panel-3'], k.well], 7, 1);
+      k.muted = ensure(0.78, 0.035, hs, [k.panel, k['panel-2'], k['panel-3'], k.bg, k.well, k['well-2']], 4.5, 1);
+      k.dim = ensure(0.68, 0.03, hs, [k.panel, k['panel-2'], k.bg, k.well, k['well-2'], k['side-1'], k['side-2']], 4.5, 1);
       k.accent = ensure(Math.max(La, 0.7), Ca, ha, [k.panel, k.bg], 3, 1);
       k['accent-hi'] = ensure(Math.max(La, 0.86), Math.min(Ca, 0.15), ha, [k.panel, k.well, k['panel-3']], 4.5, 1);
     }
@@ -103,10 +103,14 @@ window.Theme = (() => {
     k['accent-dark'] = oklch(Lk - (t.mode === 'light' ? 0.12 : 0.17), Ca * 0.9, ha);
     // status colors, kept readable as text on cards in either mode
     const dir = t.mode === 'light' ? -1 : 1, base = t.mode === 'light' ? 0.55 : 0.78;
-    k.teal = ensure(base, 0.12, 185, [k.panel, k.well], 4.5, dir);
-    k.good = ensure(base + 0.04, 0.15, 150, [k.panel], 3, dir);
-    k.bad = ensure(base - 0.08, 0.19, 25, [k.panel], 3, dir);
-    k.pink = ensure(base - 0.05, 0.18, 350, [k.panel], 3, dir);
+    const cards = [k.panel, k['panel-2'], k.well, k['well-2'], k.bg];
+    k.teal = ensure(base, 0.12, 185, cards, 4.5, dir);
+    k.good = ensure(base + 0.04, 0.15, 150, cards, 4.5, dir);
+    k.bad = ensure(base - 0.08, 0.19, 25, cards, 4.5, dir);
+    k.pink = ensure(base - 0.05, 0.18, 350, cards, 4.5, dir);
+    // game HUD colors: energy (gold) and frozen (ice), readable on panels in both modes
+    k.energy = ensure(t.mode === 'light' ? 0.5 : 0.9, 0.14, 90, cards, 4.5, dir);
+    k.ice = ensure(t.mode === 'light' ? 0.5 : 0.86, 0.1, 225, cards, 4.5, dir);
     k.dot = t.mode === 'light' ? 'rgba(40, 60, 90, .07)' : 'rgba(170, 210, 240, .06)';
     return { tokens: k, mode: t.mode, theme: t };
   }
