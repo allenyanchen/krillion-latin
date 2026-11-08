@@ -108,7 +108,7 @@ function auditPage() {
 
 // ---------- helpers ----------
 (async () => {
-  const b = await chromium.launch({ channel: 'chrome', headless: true });
+  const b = await chromium.launch({ channel: 'chrome', headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] }); // WebGL on, for the storm film
   const report = [];
   const errs = [];
   const newPage = async (name, opts = {}) => {
@@ -208,7 +208,9 @@ function auditPage() {
       await sweep(p, 'island-frozen');
       await p.evaluate(() => { Game.debugState().fx.endAt = Date.now() + 200; });
       await p.waitForFunction(() => Game.debugState().phase === 'voyage', null, { timeout: 5000 });
-      await p.waitForTimeout(6000); await sweep(p, 'island-voyage');
+      await p.evaluate(() => { Game.debugState().fx.voyage.endsAt = Date.now() + 60000; }); // the film is long; hold it, then end it
+      await p.waitForTimeout(9000); await sweep(p, 'island-voyage');
+      await p.evaluate(() => { Game.debugState().fx.voyage.endsAt = Date.now(); });
       await p.waitForFunction(() => Game.debugState().phase === 'over', null, { timeout: 40000 }); await p.waitForTimeout(800);
       await sweep(p, 'island-over');
     } else {

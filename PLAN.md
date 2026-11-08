@@ -121,7 +121,12 @@ A left sidebar (a bottom tab bar on phones) links to four pages.
    | Extras | Oars, Rope Coil, Tar Barrel, Bilge Pump, Anchor, Lantern, Compass, Spyglass, Water Barrels, Food Crates, Fishing Net, Golden Figurehead |
 
    Parts add to five stats: **Hull, Speed, Balance, Navigation, Supplies**. Hull points = 3 + Hull. Every player's ship sits at their own pier in the harbor and visibly changes as they buy parts.
-7. **The storm:** when the timer ends, everyone is teleported onto their ship and the storm plays out as a side-view animation. Each obstacle checks one or two stats; failing costs hull points, and at 0 the ship sinks.
+7. **The storm:** when the timer ends, everyone is teleported onto their ship ("Time's up! All aboard!") and the storm plays as a short hand-drawn 3D film (Three.js, flat cartoon shading with black ink outlines and paper-card captions). Each obstacle checks one or two stats; failing costs hull points, and at 0 the ship sinks.
+   - **Story:** the last evening in the harbor → each captain introduced on their ship (your own first, up to 6) → "Ropes off!" → one segment per danger → dawn at the lighthouse harbor (or "Lost at sea" with floating planks if no ship made it).
+   - **Each danger** has three shots: a b-roll of the danger with a story line, the ship facing it ("Needs Balance 2 · your ship has 4"), and a reaction (the captain turns to the camera; "Cleared!" or "−2 ♥"), plus everyone's result for that danger.
+   - Ships are built from the parts each player bought, with that player's character (colour, eyes, hat) at the helm. The film follows your ship; once it sinks you watch it go down, then the film follows the leader. Sunk ships never appear again.
+   - About 7 s per danger, roughly 75 s in total; dangers after every ship has sunk are skipped. The host can **Skip to results**.
+   - The film is a pure function of time from the voyage start, so everyone sees the same shot, and late joiners land in the right place. Three.js (cdnjs) loads in the background while people play; slow machines drop resolution automatically, and without WebGL the old 2D pixel storm plays on the same timeline.
 
    | Obstacle | Checks | Easy / Medium / Hard | Damage |
    |---|---|---|---|
@@ -167,6 +172,7 @@ GitHub Pages only serves files, so live play goes through **Supabase Realtime** 
 | `game.js` | Multiplayer, host game logic, chat, drawer, music and sounds |
 | `factory.js` | Factory mode: parallax renderer, conveyors, items, movement, bins and stealing, host rules, minimap |
 | `island.js` | Survival Island: island generator and renderer, digging, coins, trader, shipwright shop, ships, storm voyage, host rules, minimap |
+| `voyage3d.js` | Survival Island's storm film: Three.js scene, ink-outline pass, ships built from parts, characters, camera shots, story captions |
 | `scene.js` | Pixel renderer: seafloor, rocks, characters, pufferfish, effects |
 | `questions.js` | Built-in sets |
 | `config.js` | Supabase URL and public key |

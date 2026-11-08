@@ -28,7 +28,9 @@ window.Island = (() => {
   const COUNTDOWN = 3500;
   const GAIN_DEFAULT = 100, DRAIN_WALK = 10;
   const PACK = 5, DIG_R = 18, DIG_MS = 1200, COIN_MS = 600, SEE_R = 48, GLINT_R = 140, COIN_R = 10, STAND_R = 40;
-  const V_TELE = 2600, V_OBS = 3400, V_END = 3200;  // voyage timing (ms)
+  const V_TELE = 2600, V_OBS = 3400, V_END = 3200;  // 2D fallback storm timing (ms)
+  // The storm film (voyage3d.js): intro, one shot per captain, set sail, one segment per danger, ending.
+  const VP = { intro: 6000, crew: 2800, crewMax: 6, sail: 4000, obs: 7000, end: 9000 };
   const Z = { DEEP: 0, WATER: 1, SHALLOW: 2, SAND: 3, GRASS: 4, FOREST: 5, HILL: 6, PLAZA: 7 };
   const DIFF = {
     easy: { label: 'Easy', trs: 46, coins: 30, coin: [5, 10] },
@@ -139,6 +141,22 @@ window.Island = (() => {
     return { hp0, steps, sunk, hp, score: shipScore(st) };
   }
   const reached = (r, n) => (r.sunk < 0 ? n + 1 : r.sunk);
+  // The film's timeline. Host and players build the same durations (dangers after every ship has sunk
+  // are skipped); players see their own captain first.
+  function voyagePlan(V, meId) {
+    const n = V.route.length, ids = Object.keys(V.res);
+    let last = -1;
+    for (const id of ids) { const r = V.res[id]; last = Math.max(last, r.sunk < 0 ? n - 1 : r.sunk); }
+    const crew = ids.slice().sort((a, b) => (a === meId ? -1 : b === meId ? 1 : 0)).slice(0, VP.crewMax);
+    const segs = []; let t = 0;
+    const add = (o, dur) => { segs.push({ ...o, t0: t, dur }); t += dur; };
+    add({ kind: 'intro' }, VP.intro);
+    for (const id of crew) add({ kind: 'crew', id }, VP.crew);
+    add({ kind: 'sail' }, VP.sail);
+    for (let i = 0; i <= last; i++) add({ kind: 'obs', i, ob: V.route[i] }, VP.obs);
+    add({ kind: 'end' }, VP.end);
+    return { segs, total: t };
+  }
 
   // ---------- helpers ----------
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -838,6 +856,34 @@ window.Island = (() => {
     }
     if (e < 450) { g.globalAlpha = 1 - e / 450; rect('#000', 0, 0, W, H); g.globalAlpha = 1; }
   }
+  let planCache = null, filmFreeze = null; // filmFreeze: tests pin the film to one moment
+  function planFor(V) { if (!planCache || planCache.at !== V.at) planCache = { at: V.at, plan: voyagePlan(V, ctx.me.id) }; return planCache.plan; }
+  // start (once per voyage) and size the 3D film; false while Three.js is loading or unavailable
+  function film(V, plan) {
+    if (!window.Voyage3D || !Voyage3D.ready()) { if (window.Voyage3D) Voyage3D.preload(); return false; }
+    const box = $('#isCine'); if (!box) return false;
+    const right = Math.round(visibleArea().right * SCALE);
+    if (box.dataset.right !== String(right)) { box.dataset.right = right; box.style.right = right + 'px'; }
+    if (Voyage3D.key() !== V.at) {
+      const ids = Object.keys(V.res);
+      Voyage3D.begin(box, {
+        V, plan, meId: ctx.me.id, playing: amPlaying(), ships: fx.ships || {}, OBST, STAT_NAME,
+        players: ids.map((id) => { const p = player(id); return { id, name: p ? p.name : 'Sailor', look: (p && p.look) || {}, color: colorOf(id) }; }),
+        partName: (slot, tier) => (partFor(slot, tier) || { name: '' }).name,
+        canSkip: !!ctx.me.host,
+        onSkip: () => { if (ctx.me.host && fx && fx.voyage && S.phase === 'voyage') fx.voyage.endsAt = Date.now(); },
+      });
+    }
+    return true;
+  }
+  // map the film's timeline onto the old 2D storm (used only without WebGL)
+  function storm2D(plan, e, n) {
+    const s = plan.segs.find((x) => e >= x.t0 && e < x.t0 + x.dur) || plan.segs[plan.segs.length - 1];
+    const u = clamp((e - s.t0) / s.dur, 0, 1);
+    if (s.kind === 'obs') return s.i * V_OBS + u * V_OBS;
+    if (s.kind === 'end') return n * V_OBS + u * V_END * 0.95;
+    return 500; // before the first danger: hold its opening frame (past the fade-in)
+  }
   function drawTeleport(el) {
     const sp = shipPos(amPlaying() ? ctx.me.id : (fx.voyage.rank[0] || ''));
     const a = clamp(1 - el / 700, 0, 1);
@@ -854,9 +900,11 @@ window.Island = (() => {
     tg.clearRect(0, 0, tcv.width, tcv.height);
     const V = fx && fx.voyage;
     if (V && (S.phase === 'voyage' || S.phase === 'over')) {
-      const el = S.phase === 'over' ? V_TELE + V.route.length * V_OBS + V_END * 0.9 : now() - V.at;
-      if (el >= V_TELE) { drawStorm(Math.min(el - V_TELE, V.route.length * V_OBS + V_END * 0.95), t); return; }
-      drawIsland(t); drawTeleport(el); return;
+      const el = now() - V.at, plan = planFor(V);
+      if (S.phase === 'voyage' && el < V_TELE && filmFreeze == null) { drawIsland(t); drawTeleport(el); return; }
+      const e = filmFreeze != null ? filmFreeze : S.phase === 'over' ? plan.total : el - V_TELE;
+      if (film(V, plan)) { Voyage3D.render(e, S.phase === 'over', performance.now()); return; }
+      drawStorm(storm2D(plan, e, V.route.length), t); return;
     }
     drawIsland(t);
     if (fx && fx.startAt && S.phase === 'play') {
@@ -1446,7 +1494,8 @@ window.Island = (() => {
       const n = route.length;
       const rank = Object.keys(res).sort((a, b) => (reached(res[b], n) - reached(res[a], n)) || (res[b].hp - res[a].hp) || (res[b].score - res[a].score) || ((f.money[b] || 0) - (f.money[a] || 0)));
       const at = Date.now() + 300;
-      f.voyage = { at, route, res, rank, endsAt: at + V_TELE + n * V_OBS + V_END };
+      f.voyage = { at, route, res, rank, endsAt: 0 };
+      f.voyage.endsAt = at + V_TELE + voyagePlan(f.voyage, null).total;
       f.trs = []; f.coins = []; this.trItems.clear();
       S.phase = 'voyage';
       this.ev(S, { type: 'voyage' });
@@ -1521,6 +1570,7 @@ window.Island = (() => {
       $('#fxQuizClose').innerHTML = 'Back to factory <kbd>Space</kbd>';
     }
     energyAt = { v: 0, t: 0 };
+    if (window.Voyage3D) Voyage3D.stop();
   }
   function onState(s) {
     const prevPhase = lastPhase; lastPhase = s.phase;
@@ -1534,6 +1584,8 @@ window.Island = (() => {
       me.placed = false; Object.assign(quiz, { q: null, next: null, locked: false });
       if (amPlaying()) setTimeout(openQuiz, 300); // everyone starts at 0 energy
     }
+    if (s.phase === 'play' && window.Voyage3D) Voyage3D.preload(); // fetch Three.js while people play
+    if (s.phase !== 'voyage' && s.phase !== 'over' && window.Voyage3D && Voyage3D.active()) Voyage3D.stop();
     energyAt = { v: serverEnergy(ctx.me.id), t: performance.now() };
     handleEvents();
     // coins we walked over that the host didn't give us come back after a moment
@@ -1552,6 +1604,8 @@ window.Island = (() => {
     };
   }
   const test = {
+    plan() { return fx && fx.voyage ? planFor(fx.voyage) : null; },
+    freeze(e) { filmFreeze = e; },
     warp(x, y) { if (!canStand(x, y)) return false; me.x = x; me.y = y; me.sentV = null; sendPos(); return true; },
     nearestOpen(x, y) { for (let r = 0; r < 60; r += 2) for (let a = 0; a < 6.28; a += 0.4) { const px = x + Math.cos(a) * r, py = y + Math.sin(a) * r; if (canStand(px, py)) return { x: px, y: py }; } return null; },
   };

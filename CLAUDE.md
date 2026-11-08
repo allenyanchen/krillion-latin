@@ -79,6 +79,11 @@ Every color comes from `theme.js`, which generates tokens from one accent color 
   The top bar is `.g-top` and the info card is `.fx-hud`. New HUD pieces must fit this stack. Touch overrides go at the **end** of `style.css` so they win.
 - **Touch:** no keyboard hints (hide `kbd`); every action needs an on-screen button.
 
+## Libraries and 3D
+- No build step and no npm packages in the site. External scripts come only from cdnjs (pinned version), loaded lazily where needed. Three.js 0.160.0 is imported in `voyage3d.js` when the island starts.
+- The storm film's style: flat toon shading (`R.toon`), black ink outlines from the post pass (objects on layer 0 get outlines; sky, rain, particles and labels go on layer 1), paper-and-ink overlay cards in Patrick Hand. New 3D objects should be simple shapes in flat colours and let the ink pass draw their edges.
+- Anything timed in a shared animation must be a function of the shared clock (`now()` / voyage `at`), never of local frame counts, so every screen shows the same moment. Tests can pin the film with `Island.test.freeze(ms)`.
+
 ## Checking work
 - Serve locally: `python3 -m http.server 8765`. Tests use playwright-core with system Chrome (headless) and go through the real Supabase.
 - **After any visual change, run the UI audit:**

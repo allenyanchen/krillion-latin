@@ -13,19 +13,20 @@
   <meta property="og:image" content="https://allenyanchen.github.io/krillion-latin/assets/logo-520.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800&family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800&family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen&family=Patrick+Hand&display=swap" rel="stylesheet">
   <meta name="theme-color" content="#011021">
-  <script src="theme.js?v=202611081646"></script>
-  <link rel="stylesheet" href="style.css?v=202611081646">
+  <script src="theme.js?v=202611081722"></script>
+  <link rel="stylesheet" href="style.css?v=202611081722">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-  <script src="config.js?v=202611081646"></script>
-  <script src="questions.js?v=202611081646"></script>
-  <script src="scene.js?v=202611081646" defer></script>
-  <script src="store.js?v=202611081646" defer></script>
-  <script src="factory.js?v=202611081646" defer></script>
-  <script src="island.js?v=202611081646" defer></script>
-  <script src="game.js?v=202611081646" defer></script>
-  <script src="app.js?v=202611081646" defer></script>
+  <script src="config.js?v=202611081722"></script>
+  <script src="questions.js?v=202611081722"></script>
+  <script src="scene.js?v=202611081722" defer></script>
+  <script src="store.js?v=202611081722" defer></script>
+  <script src="factory.js?v=202611081722" defer></script>
+  <script src="voyage3d.js?v=202611081722" defer></script>
+  <script src="island.js?v=202611081722" defer></script>
+  <script src="game.js?v=202611081722" defer></script>
+  <script src="app.js?v=202611081722" defer></script>
 </head>
 <body>
   <!-- ============ App shell (dashboard pages) ============ -->
@@ -69,6 +70,7 @@
       <div id="fxPrompt" class="fx-prompt" hidden></div>
       <div id="fxBanner" class="fx-banner" role="status" hidden></div>
       <div class="fx-keys-help">Move <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows · Use <kbd>E</kbd> · Questions <kbd>Space</kbd></div>
+      <div id="isCine" class="is-cine" hidden></div>
       <div id="isPack" class="is-pack" hidden></div>
       <div id="isShop" class="is-shop" hidden role="dialog" aria-label="Shipwright's shop">
         <div class="is-shop-card g-card">

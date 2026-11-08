@@ -838,3 +838,56 @@ html[data-mode="light"] .brand-text, html[data-mode="light"] .page-head h1, html
   .fx-prompt { bottom: 342px; white-space: normal; max-width: calc(100% - 24px); width: max-content; }
   .fx-qbtn kbd, #fxQuizClose kbd, .fx-prompt kbd { display: none; }
 }
+
+/* ---------- Survival Island: the storm film (voyage3d.js) ----------
+   Hand-drawn look: paper cards with ink outlines. Fixed paper + ink colours on every overlay (not themed). */
+.is-cine { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 3; overflow: hidden; background: #0d1018; }
+.game-page:not([data-mode="island"]) .is-cine { display: none; }
+.cine-cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.cine-fade { position: absolute; inset: 0; background: #000; pointer-events: none; opacity: 0; }
+.cine-cap, .cine-title, .cine-bar, .cine-hearts, .cine-board span, .cine-skip {
+  font-family: 'Patrick Hand', 'Nunito', sans-serif; color: #1d1820; background: #fbf6e9; border: 3px solid #141018; box-shadow: 4px 5px 0 rgba(20, 16, 24, .5);
+}
+.cine-cap { position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%) rotate(-.6deg); width: max-content; max-width: min(720px, calc(100% - 32px)); padding: 10px 22px 12px; border-radius: 10px 14px 9px 13px; text-align: center; }
+.cine-cap b { display: block; font-size: 1.7rem; line-height: 1.1; font-weight: 400; }
+.cine-cap b:empty { display: none; }
+.cine-cap p { margin: 2px 0 0; font-size: 1.3rem; line-height: 1.25; }
+.cine-cap.crew b { font-size: 2.1rem; }
+.cine-cap.good b { color: #1d6b34; }
+.cine-cap.bad b { color: #a3201a; }
+.cine-cap.in { animation: capIn .55s cubic-bezier(.2, .9, .3, 1.3); }
+@keyframes capIn { from { opacity: 0; transform: translateX(-50%) translateY(16px) rotate(-.6deg); } }
+.cine-title { position: absolute; left: 50%; top: 132px; transform: translateX(-50%) rotate(.8deg); display: flex; flex-direction: column; align-items: center; padding: 6px 24px 8px; border-radius: 12px 9px 14px 10px; }
+.cine-title .ic { font-size: 1.7rem; line-height: 1.1; }
+.cine-title b { font-size: 2.1rem; line-height: 1.05; font-weight: 400; text-transform: uppercase; letter-spacing: 1px; }
+.cine-title small { font-size: 1.05rem; color: #4a4250; }
+.cine-title.in { animation: titleIn .6s cubic-bezier(.2, .9, .3, 1.4); }
+@keyframes titleIn { from { opacity: 0; transform: translateX(-50%) scale(.6) rotate(-4deg); } }
+.cine-bar { position: absolute; top: 84px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; padding: 4px 6px; border-radius: 10px; border-width: 2px; box-shadow: 3px 3px 0 rgba(20, 16, 24, .5); max-width: calc(100% - 24px); }
+.cine-bar .node { display: flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: 6px; opacity: .45; white-space: nowrap; }
+.cine-bar .node i { font-style: normal; }
+.cine-bar .node em { font-style: normal; font-size: .95rem; }
+.cine-bar .node.done { opacity: 1; }
+.cine-bar .node.now { opacity: 1; background: #ffe08a; box-shadow: inset 0 0 0 2px #141018; }
+.cine-hearts { position: absolute; left: 16px; top: 132px; display: flex; flex-direction: column; gap: 2px; padding: 6px 12px; border-radius: 9px 12px 10px 11px; }
+.cine-hearts b { font-weight: 400; font-size: 1.15rem; }
+.cine-hearts span { display: flex; flex-wrap: wrap; gap: 2px; max-width: 220px; }
+.cine-hearts i { font-style: normal; font-size: 1.25rem; line-height: 1; }
+.cine-hearts i.on { color: #d62845; }
+.cine-hearts i.off { color: #b9b0a3; }
+.cine-board { position: absolute; left: 16px; top: 222px; display: flex; flex-direction: column; gap: 6px; }
+.cine-board span { display: flex; align-items: center; gap: 8px; padding: 2px 12px; border-radius: 8px; border-width: 2px; box-shadow: 3px 3px 0 rgba(20, 16, 24, .45); font-size: 1.15rem; animation: capIn .4s both; }
+.cine-board i { width: 12px; height: 12px; border: 2px solid #141018; }
+.cine-board .ok { color: #1d6b34; }
+.cine-board .hit { color: #a3201a; }
+.cine-board .sunk { color: #5a5560; }
+.cine-skip { position: absolute; right: 16px; bottom: 26px; padding: 6px 14px; border-radius: 10px; font-size: 1.15rem; cursor: pointer; }
+.cine-skip:hover { background: #ffe08a; }
+@media (max-width: 760px) {
+  .cine-bar { top: 66px; } .cine-bar .node em { display: none; } .cine-bar .node.now em { display: inline; }
+  .cine-title { top: 110px; } .cine-title b { font-size: 1.5rem; }
+  .cine-hearts { top: auto; bottom: 150px; left: 10px; padding: 4px 8px; } .cine-hearts b { font-size: 1rem; }
+  .cine-board { display: none; }
+  .cine-cap { bottom: 16px; padding: 8px 14px 10px; } .cine-cap b { font-size: 1.35rem; } .cine-cap p { font-size: 1.1rem; }
+  .cine-skip { bottom: auto; top: 110px; right: 10px; font-size: 1rem; }
+}
