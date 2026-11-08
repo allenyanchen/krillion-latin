@@ -108,8 +108,8 @@ A left sidebar (a bottom tab bar on phones) links to four pages.
 ### Survival Island rules
 1. **The island:** a large top-down pixel island (about 3×3 screens) with beaches, grassland, forest, rocky hills, a village plaza and a harbor. The island's shape is fixed so players learn it; treasure and coins move every game. Walk with **WASD / arrows** in all directions; trees, rocks, stalls and the sea block you.
 2. **Energy:** the same rules as Factory: correct answers give energy (host picks +50/+100/+150/+200), walking uses 10 a second, standing still is free, and at 0 you freeze until you answer more. The question screen opens automatically at the start.
-3. **Antiques (hidden):** buried around the island, invisible until you're close. A glint flashes within a few steps, and an **X** appears when you're right next to one. Press **E** to dig. They are the **same 20 items as Factory**. Spots in the **forest and hills** roll twice and keep the rarer item, so exploring deeper pays off. Your **backpack holds 3**. A new antique is buried somewhere else whenever one is dug up.
-4. **Coins:** visible gold coins scattered around (some hide under trees). Walk over them for instant money.
+3. **Antiques (hidden):** buried around the island, invisible until you're close. A glint flashes within a few steps, and an **X** appears when you're right next to one. Press **E** and stay still for about a second to dig it up (walking away cancels). They are the **same 20 items as Factory**. Spots in the **forest and hills** roll twice and keep the rarer item, so exploring deeper pays off. Your **backpack holds 5**. A new antique is buried somewhere else whenever one is dug up.
+4. **Coins:** visible gold coins scattered around (some hide under trees). Stand on one and press **E** (stay still for half a second) to pick it up. Coins are plain cash, added straight to your money.
 5. **Trader (village):** press E to sell everything in your backpack at once.
 6. **Shipwright (village):** press E to open the shop: ship preview, stats, a storm forecast and 21 parts. Hull, sail and keel come in tiers (buying a better one replaces the old); extras are one of each.
 

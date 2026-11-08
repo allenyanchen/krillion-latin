@@ -27,7 +27,7 @@ window.Island = (() => {
   const WALK = 92, ACCEL = 900;
   const COUNTDOWN = 3500;
   const GAIN_DEFAULT = 100, DRAIN_WALK = 10;
-  const PACK = 3, DIG_R = 18, SEE_R = 48, GLINT_R = 140, COIN_R = 10, STAND_R = 40;
+  const PACK = 5, DIG_R = 18, DIG_MS = 1200, COIN_MS = 600, SEE_R = 48, GLINT_R = 140, COIN_R = 10, STAND_R = 40;
   const V_TELE = 2600, V_OBS = 3400, V_END = 3200;  // voyage timing (ms)
   const Z = { DEEP: 0, WATER: 1, SHALLOW: 2, SAND: 3, GRASS: 4, FOREST: 5, HILL: 6, PLAZA: 7 };
   const DIFF = {
@@ -341,7 +341,7 @@ window.Island = (() => {
   let cv, g, tcv, tg, W = 480, H = 270, SCALE = 2, dpr = 1, last = 0;
   let camx = 0, camy = 0, cx0 = 0, cy0 = 0;
   let clockOffset = null, fx = null, S = null;
-  const me = { x: 0, y: 0, vx: 0, vy: 0, f: 1, dx: 0, dy: 0, norm: 1, moving: false, placed: false, sent: 0, sentV: null, sentX: null, sentY: null, digUntil: 0 };
+  const me = { x: 0, y: 0, vx: 0, vy: 0, f: 1, dx: 0, dy: 0, norm: 1, moving: false, placed: false, sent: 0, sentV: null, sentX: null, sentY: null, chan: null };
   const others = new Map();
   const keys = { left: false, right: false, up: false, down: false };
   const parts = [], floaters = [];
@@ -551,7 +551,7 @@ window.Island = (() => {
     const sx = SXw(pos.x), sy = SYw(pos.y);
     if (sx < -30 || sx > W + 30 || sy < -40 || sy > H + 30) return;
     ellipse(sx, sy, 6, 2, 'rgba(0,0,0,.3)');
-    const ice = frozen(p.id), digging = isMe && performance.now() < me.digUntil;
+    const ice = frozen(p.id), ch = isMe ? me.chan : null, digging = !!ch && ch.type === 'dig';
     const bob = ice ? 0 : moving || digging ? Math.floor(t / 110) % 2 : Math.floor((t + p.id.length * 97) / 450) % 2;
     Scene.drawCharacter(g, sx, sy, p.look, { bob });
     if (digging) { rect('#8a96a3', sx + 6, sy - 6 - bob * 2, 2, 5); rect('#6b3e1c', sx + 6, sy - 12 - bob * 2, 1, 7); }
@@ -569,6 +569,11 @@ window.Island = (() => {
     }
     text(p.name, sx, ly, isMe ? '#ffd166' : '#fff', 6);
     if (ice) text('FROZEN', sx, ly - 8, '#9fe3ff', 5);
+    if (ch) {
+      const k = clamp((performance.now() - ch.start) / ch.dur, 0, 1), bw = 20, by = ly - 9;
+      rect('#0b1320', sx - bw / 2 - 1, by - 1, bw + 2, 5);
+      rect(ch.type === 'dig' ? '#c79a5c' : '#ffd166', sx - bw / 2, by, Math.round(bw * k), 3);
+    }
   }
   function drawIsland(t) {
     g.drawImage(world.terrain, cx0, cy0, W, H, 0, 0, W, H);
@@ -1021,6 +1026,9 @@ window.Island = (() => {
     if (dist(x, y, TRADER.x, TRADER.y + 8) < STAND_R) return pack.length ? { type: 'sell', n: pack.length, total: pack.reduce((a, i) => a + ITEMS[i].value, 0) } : { type: 'traderEmpty' };
     let best = null, bd = DIG_R;
     for (const tr of fx.trs || []) { if (pendingDig.has(tr.id)) continue; const d = dist(x, y, tr.x, tr.y); if (d < bd) { bd = d; best = tr; } }
+    let coin = null, cd = COIN_R + 4;
+    for (const c of fx.coins || []) { if (eatenCoins.has(c.id)) continue; const d = dist(x, y, c.x, c.y); if (d < cd) { cd = d; coin = c; } }
+    if (coin && (!best || cd <= bd)) return { type: 'coin', cid: coin.id, v: coin.v };
     if (best) return pack.length >= PACK ? { type: 'full' } : { type: 'dig', tid: best.id };
     const sp = shipPos(id);
     if (sp && dist(x, y, sp.x - 9, SHORE_Y + 20) < 26) return { type: 'myShip' };
@@ -1029,31 +1037,52 @@ window.Island = (() => {
   function interact() {
     const a = findAction(); if (!a) return;
     const base = { from: ctx.me.id, x: me.x, z: me.y };
-    if (a.type === 'dig') {
-      me.digUntil = performance.now() + 550; pendingDig.set(a.tid, performance.now());
-      burst(me.x + 5, me.y, 2, 10, ['#8a5a2c', '#c79a5c', '#5a3618'], 40);
-      ctx.send({ t: 'is-dig', ...base, tid: a.tid });
+    if (a.type === 'dig' || a.type === 'coin') {
+      // you have to stay put for a moment: walking away cancels
+      if (!me.chan) me.chan = { type: a.type, id: a.type === 'dig' ? a.tid : a.cid, start: performance.now(), dur: a.type === 'dig' ? DIG_MS : COIN_MS, last: 0 };
     } else if (a.type === 'sell') ctx.send({ t: 'is-sell', ...base });
     else if (a.type === 'shop' || a.type === 'myShip') { if (a.type === 'shop') openShop(); }
     else if (a.type === 'frozen') openQuiz();
   }
+  function finishChannel() {
+    const ch = me.chan; me.chan = null;
+    const base = { from: ctx.me.id, x: me.x, z: me.y };
+    if (ch.type === 'dig') {
+      pendingDig.set(ch.id, performance.now());
+      burst(me.x + 5, me.y, 2, 14, ['#8a5a2c', '#c79a5c', '#5a3618'], 50);
+      ctx.send({ t: 'is-dig', ...base, tid: ch.id });
+    } else {
+      eatenCoins.set(ch.id, performance.now());
+      ctx.send({ t: 'is-coin', ...base, cid: ch.id });
+    }
+  }
+  function updateChannel() {
+    const ch = me.chan; if (!ch) return;
+    const gone = ch.type === 'dig' ? !(fx.trs || []).some((t) => t.id === ch.id) : !(fx.coins || []).some((c) => c.id === ch.id);
+    if (gone || !gameLive() || quizOpen || shopOpen || frozen(ctx.me.id) || me.dx || me.dy) { me.chan = null; return; }
+    const el = performance.now() - ch.start;
+    if (ch.type === 'dig' && el - ch.last > 260) { ch.last = el; burst(me.x + 5, me.y, 2, 4, ['#8a5a2c', '#c79a5c', '#5a3618'], 30); }
+    if (el >= ch.dur) finishChannel();
+  }
   function renderPrompt() {
     const a = quizOpen || shopOpen ? null : findAction(), el = $('#fxPrompt');
-    const key = a ? a.type + (a.tid || '') + (a.n || '') : '';
+    const busy = me.chan && a && (a.type === 'dig' || a.type === 'coin');
+    const key = a ? a.type + (a.tid || '') + (a.cid || '') + (a.n || '') + (busy ? 'busy' : '') : '';
     if (key === prompt) return; prompt = key;
     if (!a) { el.hidden = true; return; }
     const label = {
-      dig: () => 'Dig here',
-      full: () => 'Your backpack is full (3). Sell at the Trader first',
+      dig: () => busy ? 'Digging… stay still' : 'Dig here',
+      coin: () => busy ? 'Picking up… stay still' : `Pick up the coin (<b>${money(a.v)}</b>)`,
+      full: () => `Your backpack is full (${PACK}). Sell at the Trader first`,
       sell: () => `Sell ${a.n} antique${a.n === 1 ? '' : 's'} for <b>${money(a.total)}</b>`,
       traderEmpty: () => 'Dig up antiques around the island, then sell them here',
       shop: () => 'Open the Shipwright’s shop',
       myShip: () => 'Your ship. Buy parts at the Shipwright to improve it',
       frozen: () => 'Out of energy! Answer questions to move again',
     }[a.type]();
-    const showKey = ['dig', 'sell', 'shop'].includes(a.type);
+    const showKey = ['dig', 'coin', 'sell', 'shop'].includes(a.type) && !busy;
     el.innerHTML = `${showKey ? '<kbd>E</kbd>' : a.type === 'frozen' ? '<kbd>Space</kbd>' : ''}<span>${label}</span>`;
-    el.classList.toggle('muted', !showKey && a.type !== 'frozen');
+    el.classList.toggle('muted', !showKey && a.type !== 'frozen' && !busy);
     el.classList.toggle('alert', a.type === 'frozen');
     el.hidden = false;
   }
@@ -1206,7 +1235,7 @@ window.Island = (() => {
     let tx = camx + view.cx, ty = camy + view.cy;
     if (S.phase === 'play' && amPlaying()) {
       if (!me.placed) { const sp = spawnPos(ctx.me.id); me.x = sp.x; me.y = sp.y; me.placed = true; camx = me.x - view.cx; camy = me.y - view.cy; }
-      const canMove = !quizOpen && !shopOpen && !frozen(ctx.me.id) && performance.now() > me.digUntil;
+      const canMove = !quizOpen && !shopOpen && !frozen(ctx.me.id);
       me.dx = canMove ? (keys.right ? 1 : 0) - (keys.left ? 1 : 0) : 0;
       me.dy = canMove ? (keys.down ? 1 : 0) - (keys.up ? 1 : 0) : 0;
       me.norm = me.dx && me.dy ? 0.71 : 1;
@@ -1219,11 +1248,7 @@ window.Island = (() => {
       if (me.dx) me.f = me.dx;
       me.moving = Math.abs(me.vx) > 2 || Math.abs(me.vy) > 2;
       sendPos();
-      if (gameLive() && !frozen(ctx.me.id)) for (const c of fx.coins || []) {
-        if (eatenCoins.has(c.id) || Math.abs(c.x - me.x) > COIN_R || Math.abs(c.y - me.y) > COIN_R) continue;
-        eatenCoins.set(c.id, performance.now());
-        ctx.send({ t: 'is-coin', from: ctx.me.id, cid: c.id, x: me.x, z: me.y });
-      }
+      updateChannel();
       tx = me.x; ty = me.y;
     } else if (S.phase === 'voyage' || S.phase === 'over') {
       const sp = shipPos(amPlaying() ? ctx.me.id : (fx.voyage && fx.voyage.rank[0]) || '');
@@ -1462,7 +1487,7 @@ window.Island = (() => {
     active = false;
     if (was && $('#fxStage')) $('#fxStage').hidden = true;
     others.clear(); parts.length = 0; floaters.length = 0; hostPos.clear(); eatenCoins.clear(); pendingDig.clear();
-    Object.assign(me, { x: 0, y: 0, vx: 0, vy: 0, dx: 0, dy: 0, placed: false, sentX: null, sentY: null, sentV: null, moving: false, digUntil: 0 });
+    Object.assign(me, { x: 0, y: 0, vx: 0, vy: 0, dx: 0, dy: 0, placed: false, sentX: null, sentY: null, sentV: null, moving: false, chan: null });
     lastEvN = -1; fx = null; S = null; clockOffset = null; prompt = null; camx = camy = 0; lastPhase = null; packSig = ''; shopSig = '';
     keys.left = keys.right = keys.up = keys.down = false;
     if (was) {
