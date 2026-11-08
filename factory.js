@@ -133,7 +133,7 @@ window.Factory = (() => {
   let lastEvN = -1, prompt = null, bannerTimer = 0, lastPhase = null;
   const eaten = new Set();
   let quizOpen = false;
-  const quiz = { q: null, serial: -1, locked: false, next: null, unlockTimer: 0 };
+  const quiz = { q: null, serial: -1, locked: false, next: null, unlockTimer: 0, wait: false, readyAt: 0, contTimer: 0 };
   let energyAt = { v: 0, t: 0 };
 
   const now = () => Date.now() + (clockOffset || 0);   // shared game clock (host time)
@@ -630,13 +630,14 @@ window.Factory = (() => {
     const card = $('#fxqCard'); card.classList.remove('pop'); void card.offsetWidth; card.classList.add('pop');
   }
   function answer(i) {
-    if (!quiz.q || quiz.locked || i >= quiz.q.choices.length) return;
+    if (performance.now() - (quiz.contAt || 0) < 400) return; // the click that continued must not also answer
+    if (!quiz.q || quiz.locked || quiz.wait || i >= quiz.q.choices.length || !$('#fxqChoices .tile')) return;
     quiz.locked = true;
     const tile = $(`#fxqChoices .tile[data-i="${i}"]`); if (tile) tile.classList.add('chosen');
     $('#fxqChoices').classList.add('locked');
     ctx.send({ t: 'fx-ans', from: ctx.me.id, serial: quiz.serial, choice: i });
     clearTimeout(quiz.unlockTimer);
-    quiz.unlockTimer = setTimeout(() => { quiz.locked = false; showQuestion(); }, 4000); // safety net
+    quiz.unlockTimer = setTimeout(() => { if (!quiz.wait) { quiz.locked = false; showQuestion(); } }, 4000); // safety net
   }
   function onAnswerResult(ev) {
     if (!quiz.q) return;
@@ -645,14 +646,36 @@ window.Factory = (() => {
     if (ev.ok) { fb.innerHTML = `+${gain()} <span>⚡</span> energy!`; fb.className = 'quiz-feedback good'; energyAt = { v: myEnergy() + gain(), t: performance.now() }; }
     else { fb.innerHTML = `Not quite. The answer was <b>${esc(ev.right)}</b>`; fb.className = 'quiz-feedback bad'; }
     clearTimeout(quiz.unlockTimer);
-    quiz.unlockTimer = setTimeout(() => { quiz.locked = false; showQuestion(); }, ev.ok ? 750 : 1600);
+    quiz.wait = true; quiz.readyAt = performance.now() + (ev.ok ? 250 : WRONG_WAIT); renderCont();
   }
+  // After an answer the result stays up until the player clicks or presses a key.
+  // A wrong answer makes them wait WRONG_WAIT ms first so they read the right answer.
+  const WRONG_WAIT = 3000;
+  function renderCont() {
+    const el = $('#fxqCont'); clearTimeout(quiz.contTimer);
+    if (!quiz.wait) { el.hidden = true; $('#fxQuiz').classList.remove('can-continue'); return; }
+    const left = quiz.readyAt - performance.now();
+    el.hidden = false;
+    $('#fxQuiz').classList.toggle('can-continue', left <= 0);
+    if (left > 0) {
+      el.className = 'quiz-continue wait'; el.textContent = `Continue in ${Math.ceil(left / 1000)}…`;
+      quiz.contTimer = setTimeout(renderCont, Math.min(left, ((left - 1) % 1000) + 1));
+    } else { el.className = 'quiz-continue'; el.textContent = matchMedia('(pointer: coarse)').matches ? 'Tap anywhere to continue' : 'Click or press any key to continue'; }
+  }
+  function cont() {
+    if (!quiz.wait || performance.now() < quiz.readyAt) return false;
+    quiz.wait = false; quiz.locked = false; quiz.contAt = performance.now(); renderCont();
+    if (quiz.next) showQuestion(); else showLoading();
+    return true;
+  }
+
 
   // ---------- input & interaction ----------
   function typing() { const a = document.activeElement; return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA'); }
   function onKey(e, down) {
     if (!active) return;
     if (down && !e.repeat && quizOpen) {
+      if (e.key !== 'Escape' && cont()) { e.preventDefault(); return; }
       if (/^[1-9]$/.test(e.key)) { answer(Number(e.key) - 1); e.preventDefault(); return; }
       if (e.key === 'Escape') { closeQuiz(); e.preventDefault(); return; }
     }
@@ -1156,6 +1179,7 @@ window.Factory = (() => {
       $('#fxUse').addEventListener('pointerdown', (e) => { e.preventDefault(); interact(); });
       $('#fxQBtn').addEventListener('click', () => { openQuiz(); $('#fxQBtn').blur(); });
       $('#fxQuizClose').addEventListener('click', closeQuiz);
+      $('#fxQuiz').addEventListener('pointerdown', (e) => { if (active && !e.target.closest('#fxQuizClose') && cont()) e.preventDefault(); });
       $('#fxqChoices').addEventListener('click', (e) => { const b = e.target.closest('.tile'); if (b) answer(Number(b.dataset.i)); });
     }
     resize();
@@ -1169,7 +1193,7 @@ window.Factory = (() => {
     Object.assign(me, { x: 0, z: 72, vx: 0, vz: 0, dx: 0, dz: 0, placed: false, sentX: null, sentZ: null, sentV: null, moving: false });
     pending = null; lastEvN = -1; fx = null; S = null; clockOffset = null; prompt = null; camX = 0; cam = 0; lastPhase = null;
     keys.left = keys.right = keys.up = keys.down = false;
-    closeQuiz(); Object.assign(quiz, { q: null, serial: -1, locked: false, next: null }); clearTimeout(quiz.unlockTimer);
+    closeQuiz(); Object.assign(quiz, { q: null, serial: -1, locked: false, next: null, wait: false }); clearTimeout(quiz.unlockTimer); renderCont();
     energyAt = { v: 0, t: 0 };
     if ($('#fxPrompt')) { $('#fxPrompt').hidden = true; $('#fxBanner').hidden = true; }
   }

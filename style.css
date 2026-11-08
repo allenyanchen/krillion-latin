@@ -637,6 +637,11 @@ kbd { font-family: 'Pixelify Sans', sans-serif; font-weight: 700; display: inlin
 .quiz-feedback.good { color: var(--accent-hi); animation: rightPop .45s; }
 .quiz-feedback.bad { color: #ffb3b3; }
 .quiz-feedback.bad b { color: #fff; }
+.quiz-continue { font-family: 'Pixelify Sans', sans-serif; font-weight: 700; font-size: 1.1rem; color: var(--text); padding: 8px 16px; border-radius: var(--radius); background: var(--panel); box-shadow: 0 0 0 var(--px) var(--edge); animation: contBlink 1.2s steps(2) infinite; }
+.quiz-continue.wait { color: var(--muted); animation: none; }
+.fx-quiz.can-continue { cursor: pointer; }
+.fx-quiz.can-continue .tile { cursor: pointer; }
+@keyframes contBlink { 50% { opacity: .55; } }
 @media (max-width: 700px) {
   .quiz-choices { grid-template-columns: 1fr; }
   .quiz-choices[data-n="3"] .tile:last-child { grid-column: auto; }
