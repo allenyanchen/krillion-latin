@@ -105,6 +105,40 @@ A left sidebar (a bottom tab bar on phones) links to four pages.
 9. **Winning:** the host picks **Most money** (2, 3, 5 or 8 minutes; richest wins) or **First to goal** ($1k, $2.5k or $5k). The game needs at least 1 player.
 10. **Networking:** the host decides pickups, bins, money, energy and the clock. Conveyor items come from a shared random seed, so every browser shows the same belts without sending them. Positions use *dead reckoning*: a player sends their position and walking direction only when they start, stop or turn, plus a 1-second correction while walking (about 1–2 messages a second). Other browsers predict the movement in between.
 
+### Survival Island rules
+1. **The island:** a large top-down pixel island (about 3×3 screens) with beaches, grassland, forest, rocky hills, a village plaza and a harbor. The island's shape is fixed so players learn it; treasure and coins move every game. Walk with **WASD / arrows** in all directions; trees, rocks, stalls and the sea block you.
+2. **Energy:** the same rules as Factory: correct answers give energy (host picks +50/+100/+150/+200), walking uses 10 a second, standing still is free, and at 0 you freeze until you answer more. The question screen opens automatically at the start.
+3. **Antiques (hidden):** buried around the island, invisible until you're close. A glint flashes within a few steps, and an **X** appears when you're right next to one. Press **E** to dig. They are the **same 20 items as Factory**. Spots in the **forest and hills** roll twice and keep the rarer item, so exploring deeper pays off. Your **backpack holds 3**. A new antique is buried somewhere else whenever one is dug up.
+4. **Coins:** visible gold coins scattered around (some hide under trees). Walk over them for instant money.
+5. **Trader (village):** press E to sell everything in your backpack at once.
+6. **Shipwright (village):** press E to open the shop: ship preview, stats, a storm forecast and 21 parts. Hull, sail and keel come in tiers (buying a better one replaces the old); extras are one of each.
+
+   | Slot | Parts (price) |
+   |---|---|
+   | Hull | Log Raft (start), Plank Hull ($60), Oak Hull ($180), Copper-Clad Hull ($420) |
+   | Sails | Patched Sail ($40), Canvas Sail ($140), Twin Masts ($360) |
+   | Keel | Ballast Stones ($50), Wooden Keel ($130), Iron Keel ($300) |
+   | Extras | Oars, Rope Coil, Tar Barrel, Bilge Pump, Anchor, Lantern, Compass, Spyglass, Water Barrels, Food Crates, Fishing Net, Golden Figurehead |
+
+   Parts add to five stats: **Hull, Speed, Balance, Navigation, Supplies**. Hull points = 3 + Hull. Every player's ship sits at their own pier in the harbor and visibly changes as they buy parts.
+7. **The storm:** when the timer ends, everyone is teleported onto their ship and the storm plays out as a side-view animation. Each obstacle checks one or two stats; failing costs hull points, and at 0 the ship sinks.
+
+   | Obstacle | Checks | Easy / Medium / Hard | Damage |
+   |---|---|---|---|
+   | Choppy Waters | Balance | 1 / 2 / 3 | 1 |
+   | Reef Rocks | Navigation | 2 / 3 / 4 | 2 |
+   | Lightning Squall | Speed | 2 / 4 / 5 | 2 |
+   | Whirlpool | Speed + Balance | 5 / 9 / 12 | 2 |
+   | Fog Bank | Navigation | 4 / 6 / 8 | 2 |
+   | Huge Wave | Hull + Balance | 7 / 12 / 16 | 5 |
+   | The Kraken (Hard only) | Hull + Navigation | 14 | 4 |
+   | Long Haul Home | Supplies | 2 / 4 / 5 | 2 |
+
+   Results are decided by the ship alone (no luck), so the shop's forecast is exactly what will happen. A route bar shows every player's ship moving along; if yours sinks, the camera follows the leader.
+8. **Difficulty:** Easy has 46 antiques and 30 coins ($5–10), Medium 36 and 22 ($4–8), Hard 28 and 16 ($3–6) plus the Kraken. Time on the island: 4, 6, 8 or 10 minutes (default 6).
+9. **Winning:** the ship that gets furthest wins; ties go to most hull points left, then the stronger ship, then money left.
+10. **Networking:** same as Factory: the host decides digs, coins, sales, purchases, energy and the voyage results; positions are dead-reckoned. Treasure contents stay on the host until someone digs them up.
+
 ### Answer checking
 - Capitals, spaces and macrons are ignored, and *j* counts as *i*.
 - For passive 2nd-person singular answers, the alternate *-re* ending is also accepted.
@@ -132,6 +166,7 @@ GitHub Pages only serves files, so live play goes through **Supabase Realtime** 
 | `store.js` | Local storage (profile, sets, stats) plus shared UI helpers: pixel icons, toasts, confirm dialogs |
 | `game.js` | Multiplayer, host game logic, chat, drawer, music and sounds |
 | `factory.js` | Factory mode: parallax renderer, conveyors, items, movement, bins and stealing, host rules, minimap |
+| `island.js` | Survival Island: island generator and renderer, digging, coins, trader, shipwright shop, ships, storm voyage, host rules, minimap |
 | `scene.js` | Pixel renderer: seafloor, rocks, characters, pufferfish, effects |
 | `questions.js` | Built-in sets |
 | `config.js` | Supabase URL and public key |

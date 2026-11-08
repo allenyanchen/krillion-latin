@@ -15,16 +15,17 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800&family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen&display=swap" rel="stylesheet">
   <meta name="theme-color" content="#011021">
-  <script src="theme.js?v=202611071153"></script>
-  <link rel="stylesheet" href="style.css?v=202611071153">
+  <script src="theme.js?v=202611080932"></script>
+  <link rel="stylesheet" href="style.css?v=202611080932">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-  <script src="config.js?v=202611071153"></script>
-  <script src="questions.js?v=202611071153"></script>
-  <script src="scene.js?v=202611071153" defer></script>
-  <script src="store.js?v=202611071153" defer></script>
-  <script src="factory.js?v=202611071153" defer></script>
-  <script src="game.js?v=202611071153" defer></script>
-  <script src="app.js?v=202611071153" defer></script>
+  <script src="config.js?v=202611080932"></script>
+  <script src="questions.js?v=202611080932"></script>
+  <script src="scene.js?v=202611080932" defer></script>
+  <script src="store.js?v=202611080932" defer></script>
+  <script src="factory.js?v=202611080932" defer></script>
+  <script src="island.js?v=202611080932" defer></script>
+  <script src="game.js?v=202611080932" defer></script>
+  <script src="app.js?v=202611080932" defer></script>
 </head>
 <body>
   <!-- ============ App shell (dashboard pages) ============ -->
@@ -58,6 +59,8 @@
     <div id="fxStage" class="fx-stage" hidden>
       <canvas id="fxCanvas" aria-label="Factory floor"></canvas>
       <canvas id="fxText" class="scene-text" aria-hidden="true"></canvas>
+      <canvas id="isCanvas" aria-label="Survival island"></canvas>
+      <canvas id="isText" class="scene-text" aria-hidden="true"></canvas>
       <div class="fx-hud g-card">
         <canvas id="fxMini" class="fx-mini" aria-label="Map of the factory"></canvas>
         <div id="fxGoal" class="fx-goal"></div>
@@ -66,6 +69,26 @@
       <div id="fxPrompt" class="fx-prompt" hidden></div>
       <div id="fxBanner" class="fx-banner" role="status" hidden></div>
       <div class="fx-keys-help">Move <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows · Use <kbd>E</kbd> · Questions <kbd>Space</kbd></div>
+      <div id="isPack" class="is-pack" hidden></div>
+      <div id="isShop" class="is-shop" hidden role="dialog" aria-label="Shipwright's shop">
+        <div class="is-shop-card g-card">
+          <div class="is-shop-head">
+            <div><h3>⚓ Shipwright</h3><p class="note">Every part makes your ship stronger for the storm at the end.</p></div>
+            <b id="isMoney" class="is-money">$0</b>
+            <button class="btn" id="isShopClose">Close <kbd>E</kbd></button>
+          </div>
+          <div class="is-shop-body">
+            <div class="is-ship-side">
+              <canvas id="isShipPrev" width="160" height="130" aria-label="Your ship"></canvas>
+              <ul id="isStats" class="is-stats"></ul>
+              <span class="lbl">Storm forecast</span>
+              <ol id="isForecast" class="is-forecast"></ol>
+              <p id="isVerdict" class="is-verdict"></p>
+            </div>
+            <div id="isParts" class="is-parts"></div>
+          </div>
+        </div>
+      </div>
       <div id="fxEnergy" class="energy fx-energy" hidden><span class="bolt">⚡</span><div class="bar"><i></i></div><b>0</b><em>Out of energy</em></div>
       <button id="fxQBtn" class="btn primary fx-qbtn" hidden><span class="bolt">⚡</span>Answer questions <kbd>Space</kbd></button>
       <div id="fxQuiz" class="fx-quiz" hidden role="dialog" aria-label="Answer questions for energy">
@@ -130,6 +153,14 @@
               <div id="fxGoalSeg" class="seg"><button data-v="1000">$1k</button><button data-v="2500">$2.5k</button><button data-v="5000">$5k</button></div></div>
             <span class="lbl">Energy per correct answer</span>
             <div id="fxGainSeg" class="seg"><button data-v="50">+50</button><button data-v="100">+100</button><button data-v="150">+150</button><button data-v="200">+200</button></div>
+          </div>
+          <div id="islandOpts" class="opt-group" hidden>
+            <span class="lbl">Storm difficulty</span>
+            <div id="isDiffSeg" class="seg"><button data-v="easy">Easy</button><button data-v="medium">Medium</button><button data-v="hard">Hard</button></div>
+            <span class="lbl">Time on the island</span>
+            <div id="isMinSeg" class="seg"><button data-v="4">4m</button><button data-v="6">6m</button><button data-v="8">8m</button><button data-v="10">10m</button></div>
+            <span class="lbl">Energy per correct answer</span>
+            <div id="isGainSeg" class="seg"><button data-v="50">+50</button><button data-v="100">+100</button><button data-v="150">+150</button><button data-v="200">+200</button></div>
           </div>
           <label class="toggle"><input type="checkbox" id="playToggle" checked><span></span>I'm playing too</label>
           <button id="startBtn" class="btn primary big"><i data-icon="play"></i>Start game</button>

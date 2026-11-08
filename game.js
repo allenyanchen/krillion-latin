@@ -8,6 +8,9 @@ window.Game = (() => {
   const esc = UI.esc;
   const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const pick = (a) => a[Math.floor(Math.random() * a.length)];
+  // Movement modes (Factory, Survival Island) share the same host/client hooks.
+  const modOf = (m) => (m === 'island' ? Island : m === 'factory' ? Factory : null);
+  const LABELS = { puffer: '🐡 Pufferfish Party', factory: '🏭 Factory', island: '🏝️ Survival Island' };
 
   const cfg = window.KRILLION_CONFIG || {};
   const ONLINE = !!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY && window.supabase);
@@ -95,8 +98,7 @@ window.Game = (() => {
       onMessage: (m) => {
         if (!active) return;
         if (m.t === 'chat') { if (me.host) Host.touch(); return Chat.add(m); }
-        if (m.t === 'pos') return Factory.onPos(m);
-        if (m.t === 'fx-qa') return Factory.onQuestion(m);
+        if (m.t === 'pos' || m.t === 'fx-qa') { const mod = modOf(S && S.mode) || Factory; return m.t === 'pos' ? mod.onPos(m) : mod.onQuestion(m); }
         if (m.t === 'closed' && !me.host) return roomClosed();
         if (m.t === 'reject') { rejectedIds.add(m.id); if (m.id === me.id && !me.host) rejected(m.reason); return; }
         if (me.host) Host.onMessage(m);
@@ -158,8 +160,8 @@ window.Game = (() => {
         players: [], holder: null, awaitingPass: false, qx: null, qSerial: 0,
         fuseLeft: 0, fuseTotal: 1, round: 0, feed: [], result: null, ev: null, winner: null,
       };
-      S.mode = opts.mode === 'factory' ? 'factory' : 'puffer';
-      if (S.mode === 'factory') S.fx = Factory.host.initState(opts);
+      S.mode = opts.mode === 'factory' || opts.mode === 'island' ? opts.mode : 'puffer';
+      if (modOf(S.mode)) S.fx = modOf(S.mode).host.initState(opts);
       this.colorMap = new Map(); this.lastActive = Date.now();
       this.firstSeen = new Map([[me.id, 0]]); this.seenN = 1; this.rejected = new Set();
       this.iv = [setInterval(() => this.tick(), 200), setInterval(() => this.broadcast(), 3000)];
@@ -185,7 +187,7 @@ window.Game = (() => {
         .filter((r) => !this.rejected.has(r.id) && (S.hostPlays || !r.host))
         .map((r) => ({ id: r.id, name: r.name, look: { ...r.look }, want: r.look.c, lives: S.lives, score: 0, out: false, gone: false }));
       this.assignColors();
-      if (S.mode === 'factory') Factory.host.assignSections(S);
+      if (modOf(S.mode)) modOf(S.mode).host.assignSections(S);
     },
 
     // Every player gets a different color. Players who already own a color keep it,
@@ -241,7 +243,7 @@ window.Game = (() => {
 
     onMessage(m) {
       this.touch();
-      if (S.mode === 'factory') return Factory.host.onMessage(S, m);
+      if (modOf(S.mode)) return modOf(S.mode).host.onMessage(S, m);
       if (m.t === 'answer') this.answer(m.from, m.text);
       else if (m.t === 'pass') this.pass(m.from, m.to);
     },
@@ -257,11 +259,12 @@ window.Game = (() => {
 
     start() {
       this.rebuildLobby();
-      if (S.mode === 'factory') {
-        if (!S.players.length) return UI.toast('The factory needs at least 1 player.');
+      if (modOf(S.mode)) {
+        const island = S.mode === 'island';
+        if (!S.players.length) return UI.toast(island ? 'The island needs at least 1 player.' : 'The factory needs at least 1 player.');
         S.feed = []; S.winner = null;
-        Factory.host.start(S, this.src);
-        this.log('🏭 The factory is open!');
+        modOf(S.mode).host.start(S, this.src);
+        this.log(island ? '🏝️ Everyone washed up on the island. Build a ship before the storm!' : '🏭 The factory is open!');
         this.touch();
         this.broadcast();
         return;
@@ -334,7 +337,7 @@ window.Game = (() => {
 
     tick() {
       if (!S) return;
-      if (S.mode === 'factory') Factory.host.tick(S, () => this.broadcast());
+      if (modOf(S.mode)) modOf(S.mode).host.tick(S, () => this.broadcast());
       else if (S.phase === 'play' && Date.now() >= this.fuseEnd) this.pop();
       if (Date.now() - this.lastActive > IDLE_CLOSE) this.closeRoom();
     },
@@ -377,7 +380,7 @@ window.Game = (() => {
     backToLobby() {
       Object.assign(S, { phase: 'lobby', feed: [], result: null, winner: null, holder: null, qx: null });
       this.rebuildLobby();
-      if (S.mode === 'factory') Factory.host.reset(S);
+      if (modOf(S.mode)) modOf(S.mode).host.reset(S);
       this.ev('lobby');
       this.broadcast();
     },
@@ -496,11 +499,11 @@ window.Game = (() => {
   // ---------- State → UI ----------
   function onState(s) {
     if (!active) return;
-    if (s.mode === 'factory') {
+    if (modOf(s.mode)) {
       S = s;
       Scene.setAim(false); Scene.setActive(false);
       adoptColor(s);
-      Factory.onState(s);
+      modOf(s.mode).onState(s);
       paintDrawer();
       renderUI();
       return;
@@ -547,13 +550,13 @@ window.Game = (() => {
     const page = $('#gamePage');
     if (!s) { page.dataset.phase = 'connecting'; updateInsets(); return; }
     page.dataset.phase = s.phase;
-    const factory = s.mode === 'factory';
-    page.dataset.mode = factory ? 'factory' : 'puffer';
-    $('#gMode').textContent = factory ? '🏭 Factory' : '🐡 Pufferfish Party';
-    $('#gSet').textContent = factory ? 'Factory' : s.setTitle || 'Pufferfish Party';
+    const factory = !!modOf(s.mode), island = s.mode === 'island';
+    page.dataset.mode = s.mode;
+    $('#gMode').textContent = LABELS[s.mode] || LABELS.puffer;
+    $('#gSet').textContent = island ? 'Survival Island' : factory ? 'Factory' : s.setTitle || 'Pufferfish Party';
     $('#gCode').textContent = s.code;
     $('#gPlayers').textContent = `${s.players.length} player${s.players.length === 1 ? '' : 's'}`;
-    $('#gRound').textContent = factory ? Factory.statusText(s) : s.phase === 'lobby' ? 'Lobby' : s.round ? `Round ${s.round}` : 'Starting';
+    $('#gRound').textContent = factory ? modOf(s.mode).statusText(s) : s.phase === 'lobby' ? 'Lobby' : s.round ? `Round ${s.round}` : 'Starting';
     $('#feed').innerHTML = s.feed.length ? s.feed.map((f) => `<li>${esc(f)}</li>`).join('') : '<li class="empty">Game updates will show up here.</li>';
 
     // Lobby card
@@ -564,8 +567,13 @@ window.Game = (() => {
       document.querySelectorAll('#heartsSeg button').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === s.lives));
       document.querySelectorAll('#timerSeg button').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === s.fuseStart));
       $('#playToggle').checked = s.hostPlays;
-      $('#pufferOpts').hidden = factory; $('#factoryOpts').hidden = !factory;
-      if (factory) {
+      $('#pufferOpts').hidden = factory; $('#factoryOpts').hidden = s.mode !== 'factory'; $('#islandOpts').hidden = !island;
+      if (island) {
+        const f = s.fx;
+        document.querySelectorAll('#isDiffSeg button').forEach((b) => b.classList.toggle('on', b.dataset.v === f.diff));
+        document.querySelectorAll('#isMinSeg button').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === f.minutes));
+        document.querySelectorAll('#isGainSeg button').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === (f.gain || 100)));
+      } else if (factory) {
         const f = s.fx;
         document.querySelectorAll('#fxWinSeg button').forEach((b) => b.classList.toggle('on', b.dataset.v === f.winMode));
         document.querySelectorAll('#fxMinSeg button').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === f.minutes));
@@ -575,7 +583,7 @@ window.Game = (() => {
       }
       const need = factory ? 1 : 2, ok = s.players.length >= need;
       $('#startBtn').disabled = !ok;
-      $('#startHint').textContent = ok ? (factory ? `${s.players.length} worker${s.players.length === 1 ? '' : 's'} ready` : `${s.players.length} players ready · ${s.setCount} questions`) : `Waiting for at least ${need} players…`;
+      $('#startHint').textContent = ok ? (factory ? `${s.players.length} ${island ? 'castaway' : 'worker'}${s.players.length === 1 ? '' : 's'} ready` : `${s.players.length} players ready · ${s.setCount} questions`) : `Waiting for at least ${need} players…`;
     }
     if (factory) { renderOver(s); return; }
 
@@ -616,11 +624,24 @@ window.Game = (() => {
   }
 
   function renderOver(s) {
-    const factory = s.mode === 'factory';
+    const factory = !!modOf(s.mode);
     if (factory) { $('#turnCard').hidden = true; $('#aimHint').hidden = true; $('#statusPill').hidden = true; }
     const over = s.phase === 'over';
     $('#overModal').hidden = !over;
-    if (over && factory) {
+    if (over && s.mode === 'island') {
+      const V = s.fx.voyage, n = V ? V.route.length : 0, w = s.players.find((p) => p.id === s.winner);
+      $('#winnerName').textContent = w ? (w.id === me.id ? 'You win!' : `${w.name} wins!`) : 'Game over';
+      $('#overSub').textContent = 'best ship through the storm';
+      const line = (id) => {
+        const r = V && V.res[id]; if (!r) return '';
+        if (r.sunk < 0) return `⚓ Safe harbor · ❤ ${r.hp}`;
+        return `🌊 Sank at ${Island.OBST[V.route[r.sunk]].name}`;
+      };
+      const ids = V ? V.rank : [];
+      const ranked = ids.map((id) => s.players.find((p) => p.id === id)).filter(Boolean);
+      $('#standings').innerHTML = ranked.map((p) => `<li><span>${esc(p.name)}${p.id === me.id ? ' (you)' : ''}</span><span>${line(p.id)}</span></li>`).join('');
+      $('#againBtn').hidden = !me.host; $('#againWait').hidden = me.host;
+    } else if (over && factory) {
       const w = s.players.find((p) => p.id === s.winner);
       const cash = (p) => '$' + Math.round(s.fx.money[p.id] || 0).toLocaleString();
       $('#winnerName').textContent = w ? (w.id === me.id ? 'You win!' : `${w.name} wins!`) : 'Game over';
@@ -641,7 +662,7 @@ window.Game = (() => {
   }
 
   function updateInsets() {
-    if (!active || (S && S.mode === 'factory')) return;
+    if (!active || (S && modOf(S.mode))) return;
     const page = $('#gamePage');
     const wide = window.innerWidth >= 900;
     const phase = page.dataset.phase;
@@ -722,7 +743,7 @@ window.Game = (() => {
     const p = Store.profile();
     me.name = p.name; me.look = p.look;
     active = true; S = null; roster = []; prevRoster = null; lastEvN = -1; lastQSerial = -1; joinedAt = Date.now();
-    Factory.deactivate();
+    Factory.deactivate(); Island.deactivate();
     $('#gamePage').dataset.mode = 'puffer';
     Scene.reset();
     Chat.reset();
@@ -767,15 +788,17 @@ window.Game = (() => {
       transport = null; S = null; me.host = false;
       Scene.setAim(false);
       Scene.setActive(false);
-      Factory.deactivate();
+      Factory.deactivate(); Island.deactivate();
       Music.stop();
       $('#fah').hidden = true;
     },
     init() {
       buildDrawer();
       Factory.attach({ me, send: (msg) => { if (transport) transport.send(msg); } });
+      Island.attach({ me, send: (msg) => { if (transport) transport.send(msg); } });
       const fxSeg = (sel, key, num) => document.querySelectorAll(sel + ' button').forEach((b) => (b.onclick = () => Host.configure({ fx: { [key]: num ? Number(b.dataset.v) : b.dataset.v } })));
       fxSeg('#fxWinSeg', 'winMode', false); fxSeg('#fxMinSeg', 'minutes', true); fxSeg('#fxGoalSeg', 'goal', true); fxSeg('#fxGainSeg', 'gain', true);
+      fxSeg('#isDiffSeg', 'diff', false); fxSeg('#isMinSeg', 'minutes', true); fxSeg('#isGainSeg', 'gain', true);
       $('#answerForm').onsubmit = (e) => {
         e.preventDefault();
         const v = $('#answerIn').value.trim();

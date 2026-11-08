@@ -104,7 +104,7 @@
             <li><i data-icon="crown"></i>Last player with hearts wins</li>
           </ul>
           <a class="btn primary" href="#/host/subjunctive-all"><i data-icon="play"></i>Host the Subjunctive Set</a>
-          <p class="note new-mode">New: <b>Factory</b> mode. Pick it when you host a game.</p>
+          <p class="note new-mode">New: <b>Survival Island</b> mode. Dig up antiques, build a ship and sail through the storm!</p>
         </div>
       </section>
 
@@ -438,6 +438,10 @@
               <div class="mode-art ico-art"><i data-icon="gear"></i></div>
               <div><h3>Factory</h3><p>Answer questions for energy, grab items off your conveyor, sell them, and steal from rival bins. Richest factory wins!</p><span class="chip">Multiple choice · Movement</span></div>
             </button>
+            <button class="card mode" data-mode="island" aria-pressed="false">
+              <div class="mode-art ico-art"><i data-icon="island"></i></div>
+              <div><h3>Survival Island</h3><p>Answer for energy, dig up hidden antiques, sell them and build a ship. When time runs out, sail through the storm. Best ship wins!</p><span class="chip">Multiple choice · Exploring</span></div>
+            </button>
             <div class="card mode soon"><div class="mode-art ico-art"><i data-icon="users"></i></div><div><h3>Team Tide</h3><p>Split into teams and battle it out.</p><span class="chip">Coming soon</span></div></div>
           </div>
         </section>
@@ -462,6 +466,15 @@
             <div class="seg" id="hGain">${[50, 100, 150, 200].map((v) => `<button data-v="${v}" class="${v === 100 ? 'on' : ''}">+${v}</button>`).join('')}</div>
             <p class="note">Players answer this set’s questions (multiple choice) to earn energy. Walking uses 10 energy a second; standing still is free.</p>
           </div>
+          <div id="hIsland" class="opt-group" hidden>
+            <span class="lbl">Storm difficulty</span>
+            <div class="seg" id="hDiff">${['easy', 'medium', 'hard'].map((v) => `<button data-v="${v}" class="${v === 'medium' ? 'on' : ''}">${v[0].toUpperCase() + v.slice(1)}</button>`).join('')}</div>
+            <span class="lbl">Time on the island</span>
+            <div class="seg" id="hIsMin">${[4, 6, 8, 10].map((v) => `<button data-v="${v}" class="${v === 6 ? 'on' : ''}">${v} min</button>`).join('')}</div>
+            <span class="lbl">Energy per correct answer</span>
+            <div class="seg" id="hIsGain">${[50, 100, 150, 200].map((v) => `<button data-v="${v}" class="${v === 100 ? 'on' : ''}">+${v}</button>`).join('')}</div>
+            <p class="note">Easy has more treasure and a gentler storm. Hard hides less treasure and adds the Kraken.</p>
+          </div>
           <label class="toggle"><input type="checkbox" id="hPlay" checked><span></span>I'm playing too</label>
           <p class="note">Turn this off to just run the game from the front of the room.</p>
           <button class="btn primary big" id="hGo" ${n ? '' : 'disabled'}><i data-icon="play"></i>Create room</button>
@@ -470,23 +483,24 @@
       </div>`;
     $('[data-fish-big]', main).innerHTML = UI.fish('fish-art');
     $('#hLives').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; lives = Number(b.dataset.v); $$('#hLives button').forEach((x) => x.classList.toggle('on', x === b)); };
-    let mode = 'puffer', winMode = 'time', minutes = 5, goal = 2500, gain = 100;
+    let mode = 'puffer', winMode = 'time', minutes = 5, goal = 2500, gain = 100, diff = 'medium', isMinutes = 6, isGain = 100;
     const segPick = (sel, fn) => { $(sel).onclick = (e) => { const b = e.target.closest('button'); if (!b) return; $$(sel + ' button').forEach((x) => x.classList.toggle('on', x === b)); fn(b.dataset.v); }; };
     segPick('#hWin', (v) => { winMode = v; $('#hMinRow').hidden = v !== 'time'; $('#hGoalRow').hidden = v !== 'money'; });
     segPick('#hMin', (v) => (minutes = Number(v)));
     segPick('#hGoal', (v) => (goal = Number(v)));
     segPick('#hGain', (v) => (gain = Number(v)));
+    segPick('#hDiff', (v) => (diff = v)); segPick('#hIsMin', (v) => (isMinutes = Number(v))); segPick('#hIsGain', (v) => (isGain = Number(v)));
     $$('.mode[data-mode]').forEach((c) => (c.onclick = () => {
       mode = c.dataset.mode;
       $$('.mode[data-mode]').forEach((x) => { x.classList.toggle('selected', x === c); x.setAttribute('aria-pressed', x === c); });
-      $('#hPuffer').hidden = mode !== 'puffer'; $('#hFactory').hidden = mode !== 'factory';
+      $('#hPuffer').hidden = mode !== 'puffer'; $('#hFactory').hidden = mode !== 'factory'; $('#hIsland').hidden = mode !== 'island';
     }));
     $('#hFuse').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; fuse = Number(b.dataset.v); $$('#hFuse button').forEach((x) => x.classList.toggle('on', x === b)); };
     $('#hGo').onclick = () => {
       const nm = $('#hName').value.trim();
       if (!nm) { $('#hName').classList.add('invalid'); $('#hName').focus(); return UI.toast('Enter your name first.'); }
       Store.setName(nm);
-      Game.host(set, { mode, lives, fuseStart: fuse, winMode, minutes, goal, gain, hostPlays: $('#hPlay').checked });
+      Game.host(set, { mode, lives, fuseStart: fuse, winMode, minutes, goal, gain, diff, isMinutes, isGain, hostPlays: $('#hPlay').checked });
       location.hash = '#/game';
     };
   };

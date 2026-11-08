@@ -217,6 +217,7 @@
     bolt: ['.....xxx.', '....xxx..', '...xxx...', '..xxxxxx.', '.xxxxxx..', '...xxx...', '..xxx....', '.xxx.....', 'xx.......'],
     book: ['.........', 'xxx...xxx', 'x.xx.xx.x', 'x..xxx..x', 'x...x...x', 'x...x...x', 'x...x...x', 'xxx.x.xxx', '...xxx...'],
     users: ['.xx...xx.', 'xxxx.xxxx', 'xxxx.xxxx', '.xx...xx.', '.........', 'xxxx.xxxx', 'xxxx.xxxx', 'xxxx.xxxx', '.........'],
+    island: ['..xxx.xx.', '.xxxxxxxx', 'xx..x..xx', '....x....', '....x....', '...x.....', '...x.....', '.xxxxxx..', 'xxxxxxxxx'],
     gear: ['...xxx...', '.x.xxx.x.', '.xxxxxxx.', 'xxx...xxx', 'xxx...xxx', 'xxx...xxx', '.xxxxxxx.', '.x.xxx.x.', '...xxx...'],
   };
   const FISH = {
