@@ -935,11 +935,18 @@ window.Island = (() => {
 
   // The seller's receipt: each antique pops in with its price, then the total counts up.
   let saleTimer = 0, saleRaf = 0;
+  // pinned just above the Trader's stall, kept on screen
+  function placeSale() {
+    const el = $('#isSale'); if (!el || el.hidden) return;
+    const w = el.offsetWidth / 2, x = (TRADER.x - cx0) * SCALE, y = (TRADER.y - 40 - cy0) * SCALE;
+    el.style.left = clamp(x, w + 8, window.innerWidth - w - 8) + 'px';
+    el.style.top = Math.max(el.offsetHeight + 56, y) + 'px';
+  }
   function saleCard(items, total) {
     const el = $('#isSale'); if (!el) return;
     const step = 220, start = items.length * step + 150;
     el.innerHTML = `<span class="lbl">Sold to the Trader</span><div class="row">${items.map((i, k) => `<span class="it" style="animation-delay:${k * step}ms"><img src="${itemIcon(i)}" alt="${esc(ITEMS[i].name)}"><b>+${money(ITEMS[i].value)}</b></span>`).join('')}</div><strong>+$0</strong><small>Spend it at the Shipwright!</small>`;
-    el.hidden = false; el.classList.remove('in'); void el.offsetWidth; el.classList.add('in');
+    el.hidden = false; placeSale(); el.classList.remove('in'); void el.offsetWidth; el.classList.add('in');
     const out = el.querySelector('strong'), t0 = performance.now() + start;
     cancelAnimationFrame(saleRaf);
     const tick = (now) => {
@@ -1079,18 +1086,13 @@ window.Island = (() => {
     $('#isParts').innerHTML = groups.map(([slot, label]) => `<div class="is-group"><span class="lbl">${label}</span><div class="is-grid">${PARTS.filter((p) => p.slot === slot && p.price > 0).map((p) => {
       const have = owns(sh, p), current = p.slot !== 'x' && (sh[p.slot] || 0) === p.tier;
       const afford = cash >= p.price;
-      const chips = Object.entries(p.st).map(([k, v]) => `<em>+${v} ${STAT_NAME[k]}</em>`).join('');
-      // tiered parts replace what you have: show the real change, e.g. "Hull 5 → 8"
-      // only once you've bought a hull/sail/keel: say it swaps out, and what you really gain
-      const cur = p.slot !== 'x' && !have && (sh[p.slot] || 0) > 0 ? partFor(p.slot, sh[p.slot]) : null;
-      let swap = '';
-      if (cur) {
-        const gain = Object.keys({ ...cur.st, ...p.st }).map((k) => [k, (p.st[k] || 0) - (cur.st[k] || 0)]).filter(([, d]) => d);
-        swap = `<span class="pw">Replaces your ${esc(cur.name)}: ${gain.map(([k, d]) => `${d > 0 ? '+' : '−'}${Math.abs(d)} ${STAT_NAME[k]}`).join(', ')}</span>`;
-      }
+      // tiered parts replace what you have, so show only what you'd really gain (Oak over Plank: +2 Hull)
+      const cur = p.slot !== 'x' && !have ? partFor(p.slot, sh[p.slot] || 0) : null;
+      const gain = Object.keys(p.st).map((k) => [k, p.st[k] - ((cur && cur.st[k]) || 0)]).filter(([, d]) => d > 0);
+      const chips = gain.map(([k, v]) => `<em>+${v} ${STAT_NAME[k]}</em>`).join('');
       const state = have ? (current || p.slot === 'x' ? 'Installed' : 'Upgraded') : money(p.price);
       return `<button class="is-part${have ? ' owned' : ''}${!have && !afford ? ' poor' : ''}" data-part="${p.id}" ${have || !afford ? 'disabled' : ''} title="${esc(p.desc)}">
-        <img src="${partIcon(p)}" alt=""><span class="pn">${esc(p.name)}</span><span class="ps">${chips}</span>${swap}<b class="pp">${have ? '✓ ' : ''}${state}</b></button>`;
+        <img src="${partIcon(p)}" alt=""><span class="pn">${esc(p.name)}</span><span class="ps">${chips}</span><b class="pp">${have ? '✓ ' : ''}${state}</b></button>`;
     }).join('')}</div></div>`).join('');
     // ship preview
     const c = $('#isShipPrev').getContext('2d');
@@ -1240,7 +1242,7 @@ window.Island = (() => {
         floatText(ev.x, ev.y, 10, '+' + money(ev.v), '#ffd166', 6);
         burst(ev.x, ev.y, 4, 6, ['#ffd166', '#fff3c4'], 35);
       } else if (ev.type === 'sell') {
-        floatText(TRADER.x, TRADER.y, 50, '+' + money(ev.total), '#7bd389', ev.total >= 200 ? 10 : 8);
+        if (!mine) floatText(TRADER.x, TRADER.y, 50, '+' + money(ev.total), '#7bd389', ev.total >= 200 ? 10 : 8);
         burst(TRADER.x, TRADER.y, 40, 14, ['#ffd166', '#7bd389', '#ffffff'], 50);
         if (mine) saleCard(ev.items || [], ev.total);
       } else if (ev.type === 'buy') {
@@ -1377,6 +1379,7 @@ window.Island = (() => {
     const k = S.phase === 'play' && amPlaying() ? 1 - Math.exp(-dt * 6) : S.phase === 'voyage' ? 1 - Math.exp(-dt * 3) : 1;
     camx = lerp(camx, goalX, k); camy = lerp(camy, goalY, k);
     cx0 = Math.round(camx); cy0 = Math.round(camy);
+    placeSale();
     for (const o of others.values()) { if (o.at) { const p = predict(o.b, o.at); o.x = lerp(o.x, p.x, 1 - Math.exp(-dt * 12)); o.y = lerp(o.y, p.y, 1 - Math.exp(-dt * 12)); } }
     for (let i = parts.length - 1; i >= 0; i--) { const p = parts[i]; p.life += dt; p.x += p.vx * dt; p.y += p.vy * dt; if (p.vh != null) { p.vh -= p.g * dt; p.h = Math.max(0, p.h + p.vh * dt); } if (p.life > p.max) parts.splice(i, 1); }
     for (let i = floaters.length - 1; i >= 0; i--) if (performance.now() - floaters[i].t0 > 1300) floaters.splice(i, 1);
@@ -1515,7 +1518,7 @@ window.Island = (() => {
         if (!pack.length || dist(mx, my, TRADER.x, TRADER.y + 8) > 70) return;
         const total = pack.reduce((a, i) => a + ITEMS[i].value, 0);
         f.money[id] = (f.money[id] || 0) + total;
-        this.ev(S, { type: 'sell', id, total, n: pack.length, items: pack.slice() });
+        this.ev(S, { type: 'sell', id, total, items: pack.slice() });
         f.pack[id] = [];
       } else if (m.t === 'is-buy') {
         const part = PART[m.part], sh = (f.ships[id] = f.ships[id] || newShip());
