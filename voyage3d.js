@@ -266,38 +266,25 @@ window.Voyage3D = (() => {
   }
 
   // ---------- characters and ships ----------
-  const HAT_COL = { laurel: '#4f9d3a', crown: '#ffd23f', cap: '#2b59c3', helmet: '#b8c3cf', wizard: '#7b4fd0', bow: '#f15bb5' };
-  function faceTexture(base, eyes) {
-    const c = document.createElement('canvas'); c.width = c.height = 128;
-    const x = c.getContext('2d');
-    x.fillStyle = base; x.fillRect(0, 0, 128, 128);
-    x.strokeStyle = '#141018'; x.fillStyle = '#141018'; x.lineCap = 'round'; x.lineJoin = 'round'; x.lineWidth = 7;
-    const L = 40, Rr = 88, Y = 54;
-    if (eyes === 'wide') { for (const ex of [L, Rr]) { x.fillStyle = '#fff'; x.beginPath(); x.arc(ex, Y, 14, 0, 7); x.fill(); x.lineWidth = 4; x.stroke(); x.fillStyle = '#141018'; x.beginPath(); x.arc(ex + 3, Y + 3, 6, 0, 7); x.fill(); } }
-    else if (eyes === 'happy') { x.lineWidth = 7; for (const ex of [L, Rr]) { x.beginPath(); x.arc(ex, Y + 6, 11, Math.PI * 1.1, Math.PI * 1.9); x.stroke(); } }
-    else if (eyes === 'sleepy') { x.lineWidth = 7; for (const ex of [L, Rr]) { x.beginPath(); x.moveTo(ex - 11, Y + 2); x.lineTo(ex + 11, Y + 4); x.stroke(); } }
-    else if (eyes === 'shades') { x.fillStyle = '#141018'; x.fillRect(16, Y - 14, 96, 6); x.beginPath(); x.roundRect(20, Y - 10, 38, 22, 6); x.roundRect(70, Y - 10, 38, 22, 6); x.fill(); x.fillStyle = '#fff'; x.fillRect(28, Y - 6, 6, 5); x.fillRect(78, Y - 6, 6, 5); }
-    else { for (const ex of [L, Rr]) { x.beginPath(); x.ellipse(ex, Y, 5, 9, 0, 0, 7); x.fill(); } }
-    if (eyes !== 'shades') { x.fillStyle = 'rgba(255,120,150,.75)'; x.beginPath(); x.ellipse(22, 80, 10, 6, 0, 0, 7); x.ellipse(106, 80, 10, 6, 0, 0, 7); x.fill(); }
-    x.lineWidth = 6; x.beginPath(); x.arc(64, 78, 9, 0.2, Math.PI - 0.2); x.stroke();
-    const t = new T.CanvasTexture(c); t.colorSpace = T.SRGBColorSpace; return t;
-  }
-  function character(look, color) {
-    const g = new T.Group(), base = color;
-    const side = R.toon(base), face = R.toon('#ffffff', { map: faceTexture(base, look.e) });
-    // box faces: +x, -x, +y, -y, +z (front), -z
-    const body = new T.Mesh(new T.BoxGeometry(1.2, 1.05, 0.95), [side, side, side, side, face, side]);
-    body.position.y = 0.78; g.add(body);
-    const dark = R.toon(new T.Color(base).multiplyScalar(0.6));
-    for (const s of [-1, 1]) { const f = new T.Mesh(new T.BoxGeometry(0.42, 0.26, 0.5), dark); f.position.set(s * 0.3, 0.13, 0.05); g.add(f); }
-    const hc = HAT_COL[look.h], top = 1.31;
-    if (look.h === 'laurel') { const m = new T.Mesh(new T.TorusGeometry(0.55, 0.1, 6, 16), R.toon(hc)); m.rotation.x = Math.PI / 2; m.position.y = top - 0.05; g.add(m); }
-    if (look.h === 'crown') { const m = new T.Mesh(new T.CylinderGeometry(0.42, 0.42, 0.25, 10, 1, true), R.toon(hc, { side: T.DoubleSide })); m.position.y = top + 0.1; g.add(m); for (let k = 0; k < 5; k++) { const sp = new T.Mesh(new T.ConeGeometry(0.1, 0.25, 4), R.toon(hc)); sp.position.set(Math.cos(k * 1.26) * 0.42, top + 0.33, Math.sin(k * 1.26) * 0.42); g.add(sp); } }
-    if (look.h === 'cap') { const m = new T.Mesh(new T.SphereGeometry(0.5, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), R.toon(hc)); m.position.y = top - 0.02; m.scale.y = 0.6; g.add(m); const brim = new T.Mesh(new T.BoxGeometry(0.7, 0.06, 0.4), R.toon(hc)); brim.position.set(0, top, 0.6); g.add(brim); }
-    if (look.h === 'helmet') { const m = new T.Mesh(new T.SphereGeometry(0.62, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), R.toon(hc)); m.position.y = top - 0.12; g.add(m); const crest = new T.Mesh(new T.BoxGeometry(0.16, 0.36, 0.9), R.toon('#d62828')); crest.position.y = top + 0.5; g.add(crest); }
-    if (look.h === 'wizard') { const m = new T.Mesh(new T.ConeGeometry(0.5, 1.2, 10), R.toon(hc)); m.position.y = top + 0.55; m.rotation.z = 0.2; g.add(m); }
-    if (look.h === 'bow') { for (const s of [-1, 1]) { const m = new T.Mesh(new T.ConeGeometry(0.22, 0.42, 4), R.toon(hc)); m.rotation.z = (s * Math.PI) / 2; m.position.set(0.3 + s * 0.22, top + 0.08, 0.1); g.add(m); } }
-    g.userData.body = body;
+  // The captain is the player's own pixel character (the same drawing as everywhere else on the site),
+  // on a flat cutout that always turns to the camera. The ink pass outlines its silhouette.
+  const PX = 0.1; // world units per character pixel
+  function character(look) {
+    const cw = 24, ch = 30, cv2 = document.createElement('canvas'); cv2.width = cw; cv2.height = ch;
+    const x = cv2.getContext('2d'); x.imageSmoothingEnabled = false;
+    if (window.Scene && Scene.drawCharacter) Scene.drawCharacter(x, cw / 2, ch - 1, look || {}, {});
+    const tex = new T.CanvasTexture(cv2); tex.colorSpace = T.SRGBColorSpace;
+    tex.magFilter = tex.minFilter = T.NearestFilter; tex.generateMipmaps = false;
+    const geo = new T.PlaneGeometry(cw * PX, ch * PX); geo.translate(0, (ch * PX) / 2 - PX, 0);
+    const card = new T.Mesh(geo, new T.MeshBasicMaterial({ map: tex, alphaTest: 0.5, side: T.DoubleSide }));
+    // for the ink pass: a flat, camera-facing normal, cut to the drawing's shape
+    card.userData.nmat = new T.ShaderMaterial({
+      uniforms: { map: { value: tex } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'uniform sampler2D map; varying vec2 vUv; void main(){ if (texture2D(map, vUv).a < 0.5) discard; gl_FragColor = vec4(0.5, 0.5, 1.0, 1.0); }',
+      side: T.DoubleSide,
+    });
+    const g = new T.Group(); g.add(card); g.userData.card = card;
     return g;
   }
   function label(text, color) {
@@ -384,7 +371,7 @@ window.Voyage3D = (() => {
     if (x.includes('net')) { const n = new T.Mesh(new T.PlaneGeometry(1.4, 0.9), toon('#ffffff', { map: canvasTex(32, 32, (c) => { c.fillStyle = '#c9a46a'; c.fillRect(0, 0, 32, 32); c.strokeStyle = '#5a3a18'; c.lineWidth = 1.5; for (let i = 0; i < 32; i += 6) { c.beginPath(); c.moveTo(i, 0); c.lineTo(i, 32); c.moveTo(0, i); c.lineTo(32, i); c.stroke(); } }), side: T.DoubleSide })); n.rotation.y = Math.PI / 2; at(n, -d.W / 2 - 0.03, -0.3, 0.4); }
     if (x.includes('figure')) { const f = new T.Group(); const b = new T.Mesh(new T.ConeGeometry(0.3, 1, 8), toon('#e0ad1a')); b.rotation.x = -1.1; f.add(b); const head = new T.Mesh(new T.SphereGeometry(0.28, 10, 8), toon('#ffd166')); head.position.set(0, 0.3, -0.45); f.add(head); at(f, 0, 0.1, -hl * 1.05); }
     // the captain at the helm, facing the bow (-z)
-    const cap = character(look, color); cap.position.set(0, deckY, hl * 0.55); cap.rotation.y = Math.PI; g.add(cap);
+    const cap = character(look); cap.position.set(0, deckY, hl * 0.55); g.add(cap);
     const lab = label(name, color); lab.position.set(0, deckY + 3, hl * 0.55); g.add(lab);
     const holder = new T.Group(); holder.add(g); R.scene.add(holder);
     return { holder, ship: g, cap, label: lab, parts, deckY, len: d.L };
@@ -641,13 +628,6 @@ window.Voyage3D = (() => {
       if (s.kind === 'end' && r && r.sunk < 0 && u > 0.5) hop = Math.max(0, Math.sin(t * 7 + b.id.length)) * 0.6;
       if (mine && u > 0.7) { if (mine.p) hop = Math.max(0, Math.sin((u - 0.7) * 30)) * 0.4; else squash = 0.82; }
       cap.position.y = b.deckY + hop; cap.scale.set(1 / Math.sqrt(squash), squash, 1 / Math.sqrt(squash));
-      let turn = 0;
-      if (b === focus) {
-        if (s.kind === 'crew') turn = ease(seg01(u, 0.04, 0.3));
-        else if (s.kind === 'obs' && !sinkingNow) turn = ease(seg01(u, 0.72, 0.8));
-        else if (s.kind === 'end') turn = ease(seg01(u, 0.5, 0.58));
-      }
-      cap.rotation.y = lerp(Math.PI, Math.atan2(CU[0], CU[2]) - yaw, turn);
       const closeShot = s.kind === 'crew' || (s.kind === 'obs' && u >= 0.72) || (s.kind === 'end' && u >= 0.5);
       b.label.visible = b === focus ? s.kind === 'intro' || s.kind === 'sail' : s.kind !== 'crew' && !closeShot;
       for (const sl of b.parts.sails) sl.scale.z = 1 + Math.sin(t * 2 + b.id.length) * 0.15;
@@ -677,6 +657,7 @@ window.Voyage3D = (() => {
     shot.pos.y = Math.max(shot.pos.y, seaH(shot.pos.x, shot.pos.z) + 1.3);
     cam.position.copy(shot.pos); cam.lookAt(shot.look); cam.fov = shot.fov || 50; cam.updateProjectionMatrix();
     R.sky.position.copy(cam.position);
+    faceCamera(cam);
     updateSea(cam.position.x, cam.position.z - 40);
     if (rainOn) {
       const p = R.rain.geometry.attributes.position, n = p.count / 2;
@@ -694,6 +675,20 @@ window.Voyage3D = (() => {
     draw();
     overlay(s, u, focus, e, over);
     ui.skip.hidden = !F.data.canSkip || over;
+  }
+
+  // turn each captain cutout to face the camera (around the vertical axis), whatever the ship is doing
+  const _q = { p: null, w: null, t: null, e: null };
+  function faceCamera(cam) {
+    if (!_q.p) { _q.p = new T.Quaternion(); _q.w = new T.Vector3(); _q.t = new T.Quaternion(); _q.e = new T.Euler(); }
+    for (const b of F.ships.values()) {
+      if (!b.holder.visible) continue;
+      const cap = b.cap; cap.parent.updateWorldMatrix(true, false);
+      cap.getWorldPosition(_q.w);
+      _q.t.setFromEuler(_q.e.set(0, Math.atan2(cam.position.x - _q.w.x, cam.position.z - _q.w.z), 0));
+      cap.parent.getWorldQuaternion(_q.p);
+      cap.quaternion.copy(_q.p.invert().multiply(_q.t));
+    }
   }
 
   // ---------- camera work ----------
@@ -761,7 +756,7 @@ window.Voyage3D = (() => {
     cam.layers.set(0);
     R.waterNormalMat.uniforms.up.value.set(0, 1, 0).transformDirection(cam.matrixWorldInverse);
     const sw = R.swaps; sw.length = 0;
-    scene.traverse((o) => { if (o.isMesh && !o.isInstancedMesh) { sw.push(o, o.material); o.material = o.userData.water ? R.waterNormalMat : R.normalMat; } });
+    scene.traverse((o) => { if (o.isMesh && !o.isInstancedMesh) { sw.push(o, o.material); o.material = o.userData.water ? R.waterNormalMat : o.userData.nmat || R.normalMat; } });
     const fog = scene.fog; scene.fog = null;
     r.setRenderTarget(R.rtN); r.setClearColor(0x8080ff, 1); r.clear(); r.render(scene, cam);
     scene.fog = fog;
