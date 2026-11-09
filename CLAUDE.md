@@ -86,6 +86,11 @@ Every color comes from `theme.js`, which generates tokens from one accent color 
   - The energy bar and "Answer questions" button.
   - `#fxPrompt` for "press E" actions.
   - `#fxBanner` for announcements.
+- **Same rules in every movement mode:**
+  - Picking something up off the ground: stand on it, press E and stay still for a moment; moving cancels.
+  - At 0 energy you freeze and drop what you carry; anyone can pick it up with E.
+  - Gain popups (money, energy, items you found or bought) show only on that player's screen. Everyone sees only things that affect them: freezes, drops, steals, rare finds.
+  - Banners and messages never name keys ("press Space"). Keys appear only as `kbd` chips, which are hidden on touch.
 - **CSS scoping:**
   - Mode-specific CSS is scoped with `.game-page[data-mode="…"]`.
   - Phase-specific CSS uses `.game-page[data-phase="lobby|play|voyage|over"]`.

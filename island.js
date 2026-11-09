@@ -549,6 +549,18 @@ window.Island = (() => {
       if ((fr + c.id * 3) % 23 === 0) { rect('#ffffff', sx + 2, by - 5, 1, 3); rect('#ffffff', sx + 1, by - 4, 3, 1); }
     }
   }
+  // Antiques dropped by a frozen player: anyone can pick them up with E.
+  function drawDrops(t) {
+    if (!fx || !fx.drops || S.phase !== 'play') return;
+    for (const o of fx.drops) {
+      const e = eatenCoins.get(o.id); if (e && performance.now() - e < 2500) continue;
+      const sx = SXw(o.x), sy = SYw(o.y);
+      if (sx < -10 || sx > W + 10 || sy < -14 || sy > H + 10) continue;
+      g.globalAlpha = 0.3 + 0.15 * Math.sin(t / 180 + o.id); ellipse(sx, sy - 3, 7, 5, ITEMS[o.item].color); g.globalAlpha = 1;
+      ellipse(sx, sy + 1, 4, 1, 'rgba(0,0,0,.35)');
+      sprite(o.item, sx - 4, sy - 8 - (Math.floor(t / 350 + o.id) % 2));
+    }
+  }
   // Buried antiques are invisible: a glint flashes when you get close, and an X shows up right next to it.
   function drawTreasures(t) {
     if (!fx || !fx.trs || S.phase !== 'play') return;
@@ -610,6 +622,7 @@ window.Island = (() => {
     for (let i = 0; i < n; i++) drawPier(i, t);
     drawTreasures(t);
     drawCoins(t);
+    drawDrops(t);
     const list = [];
     const r0 = (cy0 >> 4) - 1, r1 = ((cy0 + H) >> 4) + 3;
     for (let r = r0; r <= r1; r++) {
@@ -933,7 +946,7 @@ window.Island = (() => {
     clearTimeout(bannerTimer); bannerTimer = setTimeout(() => (b.hidden = true), ms);
   }
 
-  // The seller's receipt: each antique pops in with its price, then the total counts up.
+  // Only the seller sees it: the total counts up above the Trader, then fades (about 3 s).
   let saleTimer = 0, saleRaf = 0;
   // pinned just above the Trader's stall, kept on screen
   function placeSale() {
@@ -942,20 +955,20 @@ window.Island = (() => {
     el.style.left = clamp(x, w + 8, window.innerWidth - w - 8) + 'px';
     el.style.top = Math.max(el.offsetHeight + 56, y) + 'px';
   }
-  function saleCard(items, total) {
+  function saleCard(total) {
     const el = $('#isSale'); if (!el) return;
-    const step = 220, start = items.length * step + 150;
-    el.innerHTML = `<span class="lbl">Sold to the Trader</span><div class="row">${items.map((i, k) => `<span class="it" style="animation-delay:${k * step}ms"><img src="${itemIcon(i)}" alt="${esc(ITEMS[i].name)}"><b>+${money(ITEMS[i].value)}</b></span>`).join('')}</div><strong>+$0</strong><small>Spend it at the Shipwright!</small>`;
-    el.hidden = false; placeSale(); el.classList.remove('in'); void el.offsetWidth; el.classList.add('in');
-    const out = el.querySelector('strong'), t0 = performance.now() + start;
+    el.innerHTML = '<strong>+$0</strong>';
+    el.hidden = false; placeSale(); el.classList.remove('in', 'out'); void el.offsetWidth; el.classList.add('in');
+    const out = el.querySelector('strong'), t0 = performance.now() + 150;
     cancelAnimationFrame(saleRaf);
     const tick = (now) => {
       const k = Math.max(0, Math.min(1, (now - t0) / 700));
       out.textContent = '+' + money(Math.round(total * (1 - (1 - k) ** 3)));
-      if (k < 1) saleRaf = requestAnimationFrame(tick); else { out.classList.add('pop'); burst(me.x, me.y, 18, 22, ['#ffd166', '#fff3c4', '#7bd389'], 60); }
+      if (k < 1) saleRaf = requestAnimationFrame(tick); else { out.classList.add('pop'); burst(TRADER.x, TRADER.y, 40, 14, ['#ffd166', '#7bd389', '#ffffff'], 50); }
     };
     saleRaf = requestAnimationFrame(tick);
-    clearTimeout(saleTimer); saleTimer = setTimeout(() => (el.hidden = true), start + 2400);
+    clearTimeout(saleTimer);
+    saleTimer = setTimeout(() => { el.classList.add('out'); saleTimer = setTimeout(() => (el.hidden = true), 500); }, 2500);
   }
 
   // ---------- energy ----------
@@ -1135,6 +1148,9 @@ window.Island = (() => {
     for (const tr of fx.trs || []) { if (pendingDig.has(tr.id)) continue; const d = dist(x, y, tr.x, tr.y); if (d < bd) { bd = d; best = tr; } }
     let coin = null, cd = COIN_R + 4;
     for (const c of fx.coins || []) { if (eatenCoins.has(c.id)) continue; const d = dist(x, y, c.x, c.y); if (d < cd) { cd = d; coin = c; } }
+    let drop = null, dd = COIN_R + 4;
+    for (const o of fx.drops || []) { if (eatenCoins.has(o.id)) continue; const d = dist(x, y, o.x, o.y); if (d < dd) { dd = d; drop = o; } }
+    if (drop && (!coin || dd <= cd) && (!best || dd <= bd)) return pack.length >= PACK ? { type: 'full' } : { type: 'grab', did: drop.id, item: drop.item };
     if (coin && (!best || cd <= bd)) return { type: 'coin', cid: coin.id, v: coin.v };
     if (best) return pack.length >= PACK ? { type: 'full' } : { type: 'dig', tid: best.id };
     const sp = shipPos(id);
@@ -1144,9 +1160,9 @@ window.Island = (() => {
   function interact() {
     const a = findAction(); if (!a) return;
     const base = { from: ctx.me.id, x: me.x, z: me.y };
-    if (a.type === 'dig' || a.type === 'coin') {
+    if (a.type === 'dig' || a.type === 'coin' || a.type === 'grab') {
       // you have to stay put for a moment: walking away cancels
-      if (!me.chan) me.chan = { type: a.type, id: a.type === 'dig' ? a.tid : a.cid, start: performance.now(), dur: a.type === 'dig' ? DIG_MS : COIN_MS, last: 0 };
+      if (!me.chan) me.chan = { type: a.type, id: a.type === 'dig' ? a.tid : a.type === 'coin' ? a.cid : a.did, start: performance.now(), dur: a.type === 'dig' ? DIG_MS : COIN_MS, last: 0 };
     } else if (a.type === 'sell') ctx.send({ t: 'is-sell', ...base });
     else if (a.type === 'shop' || a.type === 'myShip') { if (a.type === 'shop') openShop(); }
     else if (a.type === 'frozen') openQuiz();
@@ -1159,13 +1175,13 @@ window.Island = (() => {
       burst(me.x + 5, me.y, 2, 14, ['#8a5a2c', '#c79a5c', '#5a3618'], 50);
       ctx.send({ t: 'is-dig', ...base, tid: ch.id });
     } else {
-      eatenCoins.set(ch.id, performance.now());
-      ctx.send({ t: 'is-coin', ...base, cid: ch.id });
+      eatenCoins.set(ch.id, performance.now()); // hide it until the host answers
+      ctx.send(ch.type === 'coin' ? { t: 'is-coin', ...base, cid: ch.id } : { t: 'is-grab', ...base, did: ch.id });
     }
   }
   function updateChannel() {
     const ch = me.chan; if (!ch) return;
-    const gone = ch.type === 'dig' ? !(fx.trs || []).some((t) => t.id === ch.id) : !(fx.coins || []).some((c) => c.id === ch.id);
+    const gone = !(fx[{ dig: 'trs', coin: 'coins', grab: 'drops' }[ch.type]] || []).some((o) => o.id === ch.id);
     if (gone || !gameLive() || quizOpen || shopOpen || frozen(ctx.me.id) || me.dx || me.dy) { me.chan = null; return; }
     const el = performance.now() - ch.start;
     if (ch.type === 'dig' && el - ch.last > 260) { ch.last = el; burst(me.x + 5, me.y, 2, 4, ['#8a5a2c', '#c79a5c', '#5a3618'], 30); }
@@ -1173,13 +1189,14 @@ window.Island = (() => {
   }
   function renderPrompt() {
     const a = quizOpen || shopOpen ? null : findAction(), el = $('#fxPrompt');
-    const busy = me.chan && a && (a.type === 'dig' || a.type === 'coin');
-    const key = a ? a.type + (a.tid || '') + (a.cid || '') + (a.n || '') + (busy ? 'busy' : '') : '';
+    const busy = me.chan && a && (a.type === 'dig' || a.type === 'coin' || a.type === 'grab');
+    const key = a ? a.type + (a.tid || '') + (a.cid || '') + (a.did || '') + (a.n || '') + (busy ? 'busy' : '') : '';
     if (key === prompt) return; prompt = key;
     if (!a) { el.hidden = true; return; }
     const label = {
       dig: () => busy ? 'Digging… stay still' : 'Dig here',
       coin: () => busy ? 'Picking up… stay still' : `Pick up the coin (<b>${money(a.v)}</b>)`,
+      grab: () => busy ? 'Picking up… stay still' : `Pick up the <b style="color:${ITEMS[a.item].color}">${esc(ITEMS[a.item].name)}</b>`,
       full: () => `Your backpack is full (${PACK}). Sell at the Trader first`,
       sell: () => `Sell ${a.n} antique${a.n === 1 ? '' : 's'} for <b>${money(a.total)}</b>`,
       traderEmpty: () => 'Dig up antiques around the island, then sell them here',
@@ -1187,7 +1204,7 @@ window.Island = (() => {
       myShip: () => 'Your ship. Buy parts at the Shipwright to improve it',
       frozen: () => 'Out of energy! Answer questions to move again',
     }[a.type]();
-    const showKey = ['dig', 'coin', 'sell', 'shop'].includes(a.type) && !busy;
+    const showKey = ['dig', 'coin', 'grab', 'sell', 'shop'].includes(a.type) && !busy;
     el.innerHTML = `${showKey ? '<kbd>E</kbd>' : a.type === 'frozen' ? '<kbd>Space</kbd>' : ''}<span>${label}</span>`;
     el.classList.toggle('muted', !showKey && a.type !== 'frozen' && !busy);
     el.classList.toggle('alert', a.type === 'frozen');
@@ -1232,22 +1249,23 @@ window.Island = (() => {
       const p = player(ev.id), mine = ev.id === ctx.me.id, it = ev.item != null ? ITEMS[ev.item] : null;
       if (ev.type === 'dig') {
         pendingDig.delete(ev.tid);
-        floatText(ev.x, ev.y, 16, it.name, it.color, it.r >= 3 ? 8 : 6.5);
+        if (mine) floatText(ev.x, ev.y, 16, it.name, it.color, it.r >= 3 ? 8 : 6.5);
         burst(ev.x, ev.y, 2, it.r >= 3 ? 18 : 8, it.r >= 2 ? ['#c79a5c', it.color, '#ffffff'] : ['#8a5a2c', '#c79a5c'], 45);
         if (it.r >= NOTIFY_TIER) banner(`✨ ${mine ? 'You' : esc(p ? p.name : 'Someone')} dug up a <b style="color:${it.color}">${it.tier.toUpperCase()}</b> ${esc(it.name)}!`);
         else if (mine) banner(`⛏️ You found a <b style="color:${it.color}">${it.tier}</b> ${esc(it.name)} (${money(it.value)})`, 2200);
       } else if (ev.type === 'digFail') {
         pendingDig.delete(ev.tid); prompt = null;
       } else if (ev.type === 'coin') {
-        floatText(ev.x, ev.y, 10, '+' + money(ev.v), '#ffd166', 6);
+        if (mine) floatText(ev.x, ev.y, 10, '+' + money(ev.v), '#ffd166', 6);
         burst(ev.x, ev.y, 4, 6, ['#ffd166', '#fff3c4'], 35);
+      } else if (ev.type === 'grab') {
+        if (mine) floatText(ev.x, ev.y, 16, it.name, it.color, 6.5);
+        else if (ev.from === ctx.me.id) banner(`<b>${esc(p ? p.name : 'Someone')}</b> picked up the <b style="color:${it.color}">${esc(it.name)}</b> you dropped!`);
       } else if (ev.type === 'sell') {
-        if (!mine) floatText(TRADER.x, TRADER.y, 50, '+' + money(ev.total), '#7bd389', ev.total >= 200 ? 10 : 8);
-        burst(TRADER.x, TRADER.y, 40, 14, ['#ffd166', '#7bd389', '#ffffff'], 50);
-        if (mine) saleCard(ev.items || [], ev.total);
+        if (mine) saleCard(ev.total);
       } else if (ev.type === 'buy') {
         const part = PART[ev.part], sp = shipPos(ev.id);
-        if (sp) { burst(sp.x, sp.y, 8, 16, ['#ffd166', '#ffffff', colorOf(ev.id)], 45); floatText(sp.x, sp.y, 26, part.name, '#ffe08a', 6); }
+        if (sp) { burst(sp.x, sp.y, 8, 16, ['#ffd166', '#ffffff', colorOf(ev.id)], 45); if (mine) floatText(sp.x, sp.y, 26, part.name, '#ffe08a', 6); }
         if (mine) {
           const was = ev.was ? partFor(part.slot, ev.was) : null; // 0 = the starting raft / nothing
           banner(`⚓ Installed <b>${esc(part.name)}</b>${was ? ` (it replaced your ${esc(was.name)})` : ''}!`, 2600); shopSig = '';
@@ -1257,11 +1275,11 @@ window.Island = (() => {
       } else if (ev.type === 'ans') {
         if (mine) onAnswerResult(ev);
         const pp = posOf(ev.id);
-        if (ev.ok && pp) { floatText(pp.x, pp.y, 34, `+${gain()}⚡`, '#ffd166', 7); burst(pp.x, pp.y, 12, 10, ['#ffd166', '#fff3c4'], 40); }
+        if (ev.ok && pp && mine) { floatText(pp.x, pp.y, 34, `+${gain()}⚡`, '#ffd166', 7); burst(pp.x, pp.y, 12, 10, ['#ffd166', '#fff3c4'], 40); }
       } else if (ev.type === 'frozen') {
         const pp = posOf(ev.id);
-        if (pp) { floatText(pp.x, pp.y, 34, 'FROZEN!', '#9fe3ff', 7); burst(pp.x, pp.y, 10, 12, ['#bfe9ff', '#ffffff'], 40); }
-        if (mine) banner('❄️ Out of energy! Press <kbd>Space</kbd> to answer questions and move again.', 4000);
+        if (pp) { floatText(pp.x, pp.y, 34, ev.lost ? 'DROPPED!' : 'FROZEN!', '#9fe3ff', 7); burst(pp.x, pp.y, 10, 12, ['#bfe9ff', '#ffffff'], 40); }
+        if (mine) banner(ev.lost ? `❄️ Out of energy! You dropped ${ev.lost === 1 ? 'your antique' : `your ${ev.lost} antiques`}. Anyone can pick them up. Answer questions to move again.` : '❄️ Out of energy! Answer questions to move again.', 4500);
       } else if (ev.type === 'voyage') {
         closeQuiz(); closeShop(); flashAt = performance.now();
         $('#fxPrompt').hidden = true;
@@ -1414,7 +1432,7 @@ window.Island = (() => {
   const host = {
     qsrc: [], qstate: new Map(), lastTick: 0, lastPush: 0, nid: 0, trItems: new Map(),
     initState(opts) {
-      return { diff: DIFF[opts.diff] ? opts.diff : 'medium', minutes: opts.isMinutes || 6, gain: opts.isGain || GAIN_DEFAULT, sec: {}, money: {}, energy: {}, pack: {}, ships: {}, trs: [], coins: [], evs: [], startAt: 0, endAt: 0, voyage: null };
+      return { diff: DIFF[opts.diff] ? opts.diff : 'medium', minutes: opts.isMinutes || 6, gain: opts.isGain || GAIN_DEFAULT, sec: {}, money: {}, energy: {}, pack: {}, ships: {}, trs: [], coins: [], drops: [], evs: [], startAt: 0, endAt: 0, voyage: null };
     },
     assignSections(S) {
       const f = S.fx; if (!f) return;
@@ -1440,13 +1458,14 @@ window.Island = (() => {
     },
     reset(S) {
       const f = S.fx;
-      Object.assign(f, { money: {}, energy: {}, pack: {}, ships: {}, trs: [], coins: [], evs: [], startAt: 0, endAt: 0, voyage: null });
+      Object.assign(f, { money: {}, energy: {}, pack: {}, ships: {}, trs: [], coins: [], drops: [], evs: [], startAt: 0, endAt: 0, voyage: null });
       this.trItems.clear(); this.lastTick = 0;
       this.assignSections(S);
       S.players.forEach((p) => (p.score = 0));
     },
     ev(S, e) { const f = S.fx; f.evs.push({ n: ++evN, ...e }); if (f.evs.length > 30) f.evs.splice(0, f.evs.length - 30); dirtyAt = dirtyAt || Date.now(); },
     walking(id) { if (id === ctx.me.id) return !!(me.dx || me.dy); const h = hostPos.get(id); return !!(h && (h.b.vx || h.b.vy)); },
+    posOf(id) { if (id === ctx.me.id) return me.placed ? { x: me.x, y: me.y } : null; const h = hostPos.get(id); return h ? predict(h.b, h.at) : null; },
     // A random open spot: on land, not blocked, away from the village and the harbor, not crowded.
     spot(f, minVillage) {
       for (let tries = 0; tries < 400; tries++) {
@@ -1464,6 +1483,20 @@ window.Island = (() => {
       let item = pickItem(Math.random());
       if (s.z === Z.FOREST || s.z === Z.HILL) { const b = pickItem(Math.random()); if (ITEMS[b].r > ITEMS[item].r) item = b; } // deeper in = better odds
       const id = ++this.nid; this.trItems.set(id, item); f.trs.push({ id, x: s.x, y: s.y });
+    },
+    // a frozen player's backpack spills around them; returns how many antiques fell
+    spill(f, id) {
+      const pack = f.pack[id] || [], pp = this.posOf(id);
+      if (!pack.length || !pp) return 0;
+      f.drops = f.drops || [];
+      pack.forEach((item, k) => {
+        const a = (k / pack.length) * Math.PI * 2 + 0.6;
+        let x = pp.x + Math.cos(a) * 24, y = pp.y + Math.sin(a) * 15;
+        if (!canStand(x, y)) { x = pp.x; y = pp.y; }
+        f.drops.push({ id: ++this.nid, item, x: Math.round(x), y: Math.round(y), owner: id });
+      });
+      f.pack[id] = [];
+      return pack.length;
     },
     spawnCoin(f) {
       const s = this.spot(f, 120); if (!s) return;
@@ -1514,6 +1547,12 @@ window.Island = (() => {
         f.money[id] = (f.money[id] || 0) + c.v;
         this.ev(S, { type: 'coin', id, v: c.v, x: c.x, y: c.y });
         this.spawnCoin(f);
+      } else if (m.t === 'is-grab') {
+        const i = (f.drops = f.drops || []).findIndex((o) => o.id === m.did);
+        if (i < 0 || !hasEnergy || pack.length >= PACK || dist(f.drops[i].x, f.drops[i].y, mx, my) > 30) return;
+        const o = f.drops.splice(i, 1)[0];
+        pack.push(o.item);
+        this.ev(S, { type: 'grab', id, item: o.item, from: o.owner, x: o.x, y: o.y });
       } else if (m.t === 'is-sell') {
         if (!pack.length || dist(mx, my, TRADER.x, TRADER.y + 8) > 70) return;
         const total = pack.reduce((a, i) => a + ITEMS[i].value, 0);
@@ -1542,7 +1581,7 @@ window.Island = (() => {
       const at = Date.now() + 300;
       f.voyage = { at, route, res, rank, endsAt: 0 };
       f.voyage.endsAt = at + V_TELE + voyagePlan(f.voyage, null).total;
-      f.trs = []; f.coins = []; this.trItems.clear();
+      f.trs = []; f.coins = []; f.drops = []; this.trItems.clear();
       S.phase = 'voyage';
       this.ev(S, { type: 'voyage' });
     },
@@ -1557,7 +1596,7 @@ window.Island = (() => {
           if (!p || p.gone || (f.energy[id] || 0) <= 0 || !this.walking(id)) continue;
           const e = Math.max(0, f.energy[id] - DRAIN_WALK * dt);
           f.energy[id] = Math.round(e * 10) / 10;
-          if (e <= 0) this.ev(S, { type: 'frozen', id });
+          if (e <= 0) this.ev(S, { type: 'frozen', id, lost: this.spill(f, id) });
         }
         if (T - this.lastPush > 1000) { this.lastPush = T; dirtyAt = dirtyAt || T; }
         if (T >= f.endAt) { this.startVoyage(S); dirtyAt = 0; broadcast(); return; }
@@ -1636,7 +1675,7 @@ window.Island = (() => {
     energyAt = { v: serverEnergy(ctx.me.id), t: performance.now() };
     handleEvents();
     // coins we walked over that the host didn't give us come back after a moment
-    if (fx && fx.coins) { const ids = new Set(fx.coins.map((c) => c.id)); for (const id of eatenCoins.keys()) if (!ids.has(id)) eatenCoins.delete(id); }
+    if (fx && fx.coins) { const ids = new Set([...fx.coins, ...(fx.drops || [])].map((c) => c.id)); for (const id of eatenCoins.keys()) if (!ids.has(id)) eatenCoins.delete(id); }
     renderHud();
     prompt = null;
   }

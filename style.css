@@ -836,7 +836,7 @@ html[data-mode="light"] .brand-text, html[data-mode="light"] .page-head h1, html
 /* phones: the prompt sits above the HUD stack (energy, answer button, backpack) and wraps; no keyboard hints */
 @media (pointer: coarse) {
   .fx-prompt { bottom: 342px; white-space: normal; max-width: calc(100% - 24px); width: max-content; }
-  .fx-qbtn kbd, #fxQuizClose kbd, .fx-prompt kbd { display: none; }
+  .game-page kbd { display: none; }
 }
 
 /* ---------- Survival Island: the storm film (voyage3d.js) ----------
@@ -894,14 +894,9 @@ html[data-mode="light"] .brand-text, html[data-mode="light"] .page-head h1, html
 
 /* Survival Island: the sale receipt (seller only) */
 .game-page:not([data-mode="island"]) .is-sale { display: none; }
-.is-sale { position: absolute; z-index: 6; left: 50%; top: 40%; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 20px 14px; min-width: 220px; max-width: calc(100% - 32px); background: var(--panel); color: var(--ink); border-radius: var(--radius); box-shadow: 0 0 0 var(--px) var(--edge), inset 0 var(--px) 0 var(--hi), 0 calc(var(--px) * 2) 0 var(--px) rgba(0,0,0,.35); text-align: center; pointer-events: none; }
+.is-sale { position: absolute; z-index: 6; left: 50%; top: 40%; transform: translate(-50%, -100%); padding: 8px 18px; background: var(--panel); border-radius: var(--radius); box-shadow: 0 0 0 var(--px) var(--edge), inset 0 var(--px) 0 var(--hi), 0 calc(var(--px) * 2) 0 var(--px) rgba(0,0,0,.35); pointer-events: none; transition: opacity .5s; }
 .is-sale.in { animation: saleIn .4s cubic-bezier(.2, .9, .3, 1.4); transform-origin: 50% 100%; }
+.is-sale.out { opacity: 0; }
 @keyframes saleIn { from { opacity: 0; transform: translate(-50%, -90%) scale(.6); } }
-.is-sale .row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-.is-sale .it { display: flex; flex-direction: column; align-items: center; gap: 2px; opacity: 0; animation: saleItem .35s cubic-bezier(.2, .9, .3, 1.5) forwards; }
-.is-sale .it img { width: 36px; height: 36px; image-rendering: pixelated; padding: 3px; background: var(--well); box-shadow: inset 0 0 0 2px var(--line); }
-.is-sale .it b { font-family: 'Pixelify Sans', sans-serif; font-size: .9rem; color: var(--accent-hi); }
-.is-sale strong { font-family: 'Pixelify Sans', sans-serif; font-size: 2.4rem; line-height: 1; color: var(--good); }
+.is-sale strong { display: block; font-family: 'Pixelify Sans', sans-serif; font-size: 2.2rem; line-height: 1; color: var(--good); }
 .is-sale strong.pop { animation: rightPop .45s cubic-bezier(.2, .9, .3, 1.4); }
-.is-sale small { color: var(--muted); font-size: .85rem; }
-@keyframes saleItem { from { opacity: 0; transform: translateY(14px) scale(.6); } to { opacity: 1; transform: none; } }
