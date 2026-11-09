@@ -815,7 +815,6 @@ html[data-mode="light"] .brand-text, html[data-mode="light"] .page-head h1, html
 .is-part .ps em { font-style: normal; font-size: .72rem; padding: 0 5px; background: var(--well); color: var(--muted); border-radius: 2px; }
 .is-part .pp { font-family: 'Pixelify Sans', sans-serif; color: var(--accent-hi); }
 .is-part .pw { font-size: .74rem; line-height: 1.25; color: var(--muted); }
-.is-one { font-size: .8rem; color: var(--muted); margin-top: -2px; }
 .is-part.owned { cursor: default; box-shadow: inset 0 0 0 2px var(--good); background: color-mix(in oklab, var(--good) 12%, var(--panel-2)); }
 .is-part.owned .pp { color: var(--good); }
 .is-part.poor { cursor: not-allowed; opacity: .6; }
@@ -893,3 +892,16 @@ html[data-mode="light"] .brand-text, html[data-mode="light"] .page-head h1, html
   .cine-cap { bottom: 16px; padding: 8px 14px 10px; } .cine-cap b { font-size: 1.35rem; } .cine-cap p { font-size: 1.1rem; }
   .cine-skip { bottom: auto; top: 110px; right: 10px; font-size: 1rem; }
 }
+
+/* Survival Island: the sale receipt (seller only) */
+.game-page:not([data-mode="island"]) .is-sale { display: none; }
+.is-sale { position: absolute; z-index: 6; left: 50%; top: 26%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 20px 14px; min-width: 220px; max-width: calc(100% - 32px); background: var(--panel); color: var(--ink); border-radius: var(--radius); box-shadow: 0 0 0 var(--px) var(--edge), inset 0 var(--px) 0 var(--hi), 0 calc(var(--px) * 2) 0 var(--px) rgba(0,0,0,.35); text-align: center; pointer-events: none; }
+.is-sale.in { animation: bannerIn .4s cubic-bezier(.2, .9, .3, 1.4); }
+.is-sale .row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.is-sale .it { display: flex; flex-direction: column; align-items: center; gap: 2px; opacity: 0; animation: saleItem .35s cubic-bezier(.2, .9, .3, 1.5) forwards; }
+.is-sale .it img { width: 36px; height: 36px; image-rendering: pixelated; padding: 3px; background: var(--well); box-shadow: inset 0 0 0 2px var(--line); }
+.is-sale .it b { font-family: 'Pixelify Sans', sans-serif; font-size: .9rem; color: var(--accent-hi); }
+.is-sale strong { font-family: 'Pixelify Sans', sans-serif; font-size: 2.4rem; line-height: 1; color: var(--good); }
+.is-sale strong.pop { animation: rightPop .45s cubic-bezier(.2, .9, .3, 1.4); }
+.is-sale small { color: var(--muted); font-size: .85rem; }
+@keyframes saleItem { from { opacity: 0; transform: translateY(14px) scale(.6); } to { opacity: 1; transform: none; } }

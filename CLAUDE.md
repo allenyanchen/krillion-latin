@@ -3,6 +3,27 @@
 Puffer (formerly Krillion Latin) is a static site (vanilla JS, no build step) hosted on GitHub Pages, with Supabase for logins and realtime multiplayer.
 `PLAN.md` describes every page and game mode. Keep it updated whenever rules or files change.
 
+## How to work (Karpathy's guidelines)
+From [forrestchang/andrej-karpathy-skills](https://github.com/forrestchang/andrej-karpathy-skills), based on Andrej Karpathy's notes on common LLM coding mistakes. They lean toward caution over speed; for trivial tasks, use judgment.
+
+1. **Think before coding.** Don't assume. Don't hide confusion. Surface tradeoffs.
+   - State your assumptions explicitly. If uncertain, ask.
+   - If a request can mean more than one thing, present the readings; don't pick one silently (e.g. "rename the game" → the site, or one mode?).
+   - If a simpler approach exists, say so. Push back when warranted.
+   - If something is unclear, stop, name what's confusing, and ask.
+2. **Simplicity first.** Minimum code that solves the problem. Nothing speculative.
+   - No features beyond what was asked; no abstractions for single-use code; no configurability nobody requested; no error handling for impossible cases.
+   - If you write 200 lines and it could be 50, rewrite it. Would a senior engineer call it overcomplicated? Then simplify.
+   - The same goes for what players see: a hint should appear only when it matters to them, in as few words as possible.
+3. **Surgical changes.** Touch only what you must. Clean up only your own mess.
+   - Don't "improve" adjacent code, comments or formatting; don't refactor what isn't broken; match the existing style.
+   - Mention unrelated dead code instead of deleting it. Remove only what *your* change made unused.
+   - Test: every changed line should trace back to the request.
+4. **Goal-driven execution.** Define success criteria, then loop until they're verified.
+   - Turn tasks into checks: "fix the bug" → reproduce it in a test (here, usually a Playwright script), then make it pass.
+   - For multi-step work, state a short plan: `1. step → verify: check`.
+   - In this project, "verified" for anything big means the sweep under **Checking work** passes.
+
 ## Hard rules
 - Never put the Supabase service_role / secret key in the site. `config.js` holds only the public key.
 - Keep `*.pdf` (source worksheets) out of the repo (already in `.gitignore`).

@@ -933,6 +933,24 @@ window.Island = (() => {
     clearTimeout(bannerTimer); bannerTimer = setTimeout(() => (b.hidden = true), ms);
   }
 
+  // The seller's receipt: each antique pops in with its price, then the total counts up.
+  let saleTimer = 0, saleRaf = 0;
+  function saleCard(items, total) {
+    const el = $('#isSale'); if (!el) return;
+    const step = 220, start = items.length * step + 150;
+    el.innerHTML = `<span class="lbl">Sold to the Trader</span><div class="row">${items.map((i, k) => `<span class="it" style="animation-delay:${k * step}ms"><img src="${itemIcon(i)}" alt="${esc(ITEMS[i].name)}"><b>+${money(ITEMS[i].value)}</b></span>`).join('')}</div><strong>+$0</strong><small>Spend it at the Shipwright!</small>`;
+    el.hidden = false; el.classList.remove('in'); void el.offsetWidth; el.classList.add('in');
+    const out = el.querySelector('strong'), t0 = performance.now() + start;
+    cancelAnimationFrame(saleRaf);
+    const tick = (now) => {
+      const k = Math.max(0, Math.min(1, (now - t0) / 700));
+      out.textContent = '+' + money(Math.round(total * (1 - (1 - k) ** 3)));
+      if (k < 1) saleRaf = requestAnimationFrame(tick); else { out.classList.add('pop'); burst(me.x, me.y, 18, 22, ['#ffd166', '#fff3c4', '#7bd389'], 60); }
+    };
+    saleRaf = requestAnimationFrame(tick);
+    clearTimeout(saleTimer); saleTimer = setTimeout(() => (el.hidden = true), start + 2400);
+  }
+
   // ---------- energy ----------
   function serverEnergy(id) { return fx && fx.energy ? fx.energy[id] || 0 : 0; }
   function myEnergy() {
@@ -1058,17 +1076,17 @@ window.Island = (() => {
     $('#isVerdict').innerHTML = sim.sunk < 0 ? `Right now your ship would reach <b>Safe Harbor</b> with <b>❤ ${sim.hp}</b> left.` : `Right now your ship would <b>sink at the ${esc(OBST[route[sim.sunk]].name)}</b>.`;
     $('#isVerdict').className = 'is-verdict ' + (sim.sunk < 0 ? 'ok' : 'bad');
     const groups = [['h', 'Hull'], ['s', 'Sails'], ['k', 'Keel'], ['x', 'Extras']];
-    const ONE = { h: 'Your ship has one hull. A new hull replaces the old one; its stats don’t add up.', s: 'One sail set at a time. A new sail replaces the old one.', k: 'One keel at a time. A new keel replaces the old one.' };
-    $('#isParts').innerHTML = groups.map(([slot, label]) => `<div class="is-group"><span class="lbl">${label}</span>${ONE[slot] ? `<span class="is-one">${ONE[slot]}</span>` : ''}<div class="is-grid">${PARTS.filter((p) => p.slot === slot && p.price > 0).map((p) => {
+    $('#isParts').innerHTML = groups.map(([slot, label]) => `<div class="is-group"><span class="lbl">${label}</span><div class="is-grid">${PARTS.filter((p) => p.slot === slot && p.price > 0).map((p) => {
       const have = owns(sh, p), current = p.slot !== 'x' && (sh[p.slot] || 0) === p.tier;
       const afford = cash >= p.price;
       const chips = Object.entries(p.st).map(([k, v]) => `<em>+${v} ${STAT_NAME[k]}</em>`).join('');
       // tiered parts replace what you have: show the real change, e.g. "Hull 5 → 8"
-      const cur = p.slot !== 'x' && !have ? partFor(p.slot, sh[p.slot] || 0) : null;
+      // only once you've bought a hull/sail/keel: say it swaps out, and what you really gain
+      const cur = p.slot !== 'x' && !have && (sh[p.slot] || 0) > 0 ? partFor(p.slot, sh[p.slot]) : null;
       let swap = '';
       if (cur) {
-        const keys = [...new Set([...Object.keys(cur.st), ...Object.keys(p.st)])].filter((k) => (cur.st[k] || 0) !== (p.st[k] || 0));
-        swap = `<span class="pw">Replaces your ${esc(cur.name)}: ${keys.map((k) => { const a = cur.st[k] || 0, b2 = p.st[k] || 0; return `${STAT_NAME[k]} ${a} → ${b2} (${b2 - a >= 0 ? '+' : ''}${b2 - a})`; }).join(', ')}</span>`;
+        const gain = Object.keys({ ...cur.st, ...p.st }).map((k) => [k, (p.st[k] || 0) - (cur.st[k] || 0)]).filter(([, d]) => d);
+        swap = `<span class="pw">Replaces your ${esc(cur.name)}: ${gain.map(([k, d]) => `${d > 0 ? '+' : '−'}${Math.abs(d)} ${STAT_NAME[k]}`).join(', ')}</span>`;
       }
       const state = have ? (current || p.slot === 'x' ? 'Installed' : 'Upgraded') : money(p.price);
       return `<button class="is-part${have ? ' owned' : ''}${!have && !afford ? ' poor' : ''}" data-part="${p.id}" ${have || !afford ? 'disabled' : ''} title="${esc(p.desc)}">
@@ -1224,11 +1242,14 @@ window.Island = (() => {
       } else if (ev.type === 'sell') {
         floatText(TRADER.x, TRADER.y, 50, '+' + money(ev.total), '#7bd389', ev.total >= 200 ? 10 : 8);
         burst(TRADER.x, TRADER.y, 40, 14, ['#ffd166', '#7bd389', '#ffffff'], 50);
-        if (mine) banner(`💰 Sold ${ev.n} antique${ev.n === 1 ? '' : 's'} for <b>${money(ev.total)}</b>. Spend it at the Shipwright!`, 2600);
+        if (mine) saleCard(ev.items || [], ev.total);
       } else if (ev.type === 'buy') {
         const part = PART[ev.part], sp = shipPos(ev.id);
         if (sp) { burst(sp.x, sp.y, 8, 16, ['#ffd166', '#ffffff', colorOf(ev.id)], 45); floatText(sp.x, sp.y, 26, part.name, '#ffe08a', 6); }
-        if (mine) { banner(`⚓ Installed <b>${esc(part.name)}</b> on your ship!`, 2200); shopSig = ''; }
+        if (mine) {
+          const was = ev.was ? partFor(part.slot, ev.was) : null; // 0 = the starting raft / nothing
+          banner(`⚓ Installed <b>${esc(part.name)}</b>${was ? ` (it replaced your ${esc(was.name)})` : ''}!`, 2600); shopSig = '';
+        }
       } else if (ev.type === 'buyFail') {
         if (mine) { UI.toast(ev.why || 'Could not buy that.'); shopSig = ''; }
       } else if (ev.type === 'ans') {
@@ -1494,7 +1515,7 @@ window.Island = (() => {
         if (!pack.length || dist(mx, my, TRADER.x, TRADER.y + 8) > 70) return;
         const total = pack.reduce((a, i) => a + ITEMS[i].value, 0);
         f.money[id] = (f.money[id] || 0) + total;
-        this.ev(S, { type: 'sell', id, total, n: pack.length });
+        this.ev(S, { type: 'sell', id, total, n: pack.length, items: pack.slice() });
         f.pack[id] = [];
       } else if (m.t === 'is-buy') {
         const part = PART[m.part], sh = (f.ships[id] = f.ships[id] || newShip());
@@ -1504,9 +1525,10 @@ window.Island = (() => {
         if (owns(sh, part)) return fail('Your ship already has that.');
         if ((f.money[id] || 0) < part.price) return fail(`You need ${money(part.price)} for the ${part.name}.`);
         f.money[id] -= part.price;
+        const was = part.slot === 'x' ? null : sh[part.slot] || 0;
         if (part.slot === 'x') sh.x.push(part.id); else sh[part.slot] = part.tier;
         p.score = shipScore(shipStats(sh));
-        this.ev(S, { type: 'buy', id, part: part.id });
+        this.ev(S, { type: 'buy', id, part: part.id, was });
       }
     },
     startVoyage(S) {
@@ -1588,6 +1610,7 @@ window.Island = (() => {
       closeQuiz(); closeShop(); Object.assign(quiz, { q: null, serial: -1, locked: false, next: null, wait: false }); clearTimeout(quiz.unlockTimer); renderCont();
       if ($('#fxPrompt')) { $('#fxPrompt').hidden = true; $('#fxBanner').hidden = true; }
       if ($('#isPack')) $('#isPack').hidden = true;
+      if ($('#isSale')) $('#isSale').hidden = true;
       $('#fxQuizClose').innerHTML = 'Back to factory <kbd>Space</kbd>';
     }
     energyAt = { v: 0, t: 0 };
