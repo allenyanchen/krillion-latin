@@ -1,4 +1,4 @@
-// Krillion Latin: Factory mode (2.5D).
+// Puffer: Factory mode (2.5D).
 // A factory floor with depth: walk left/right AND toward/away from the back wall (WASD / arrows).
 // Each player owns a section:
 //   back wall:  spawner → conveyor → compactor
@@ -605,7 +605,7 @@ window.Factory = (() => {
     if (!quiz.q && !quiz.next) { showLoading(); ctx.send({ t: 'fx-q', from: ctx.me.id }); }
     else if (!quiz.locked && quiz.next) showQuestion();
   }
-  function closeQuiz() { quizOpen = false; $('#fxQuiz').hidden = true; }
+  function closeQuiz() { if (quiz.wait && performance.now() >= quiz.readyAt) cont(); quizOpen = false; $('#fxQuiz').hidden = true; }
   function toggleQuiz() { quizOpen ? closeQuiz() : openQuiz(); }
   function showLoading() {
     $('#fxqTag').hidden = true; $('#fxqText').textContent = 'Loading a question…'; $('#fxqFocus').textContent = '';
@@ -675,7 +675,7 @@ window.Factory = (() => {
   function onKey(e, down) {
     if (!active) return;
     if (down && !e.repeat && quizOpen) {
-      if (e.key !== 'Escape' && cont()) { e.preventDefault(); return; }
+      if (e.key !== 'Escape' && e.key !== ' ' && e.code !== 'Space' && cont()) { e.preventDefault(); return; } // Space and Esc always close
       if (/^[1-9]$/.test(e.key)) { answer(Number(e.key) - 1); e.preventDefault(); return; }
       if (e.key === 'Escape') { closeQuiz(); e.preventDefault(); return; }
     }
@@ -920,7 +920,7 @@ window.Factory = (() => {
     VC = view.center;
     if (playing) {
       if (!me.placed) { me.x = secX(mySection()) + SW / 2; me.z = 72; me.placed = true; }
-      const canMove = !quizOpen && !frozen(ctx.me.id);
+      const canMove = gameLive() && !quizOpen && !frozen(ctx.me.id); // no walking in the lobby or the countdown
       me.dx = canMove ? (keys.right ? 1 : 0) - (keys.left ? 1 : 0) : 0;
       me.dz = canMove ? (keys.down ? 1 : 0) - (keys.up ? 1 : 0) : 0;
       me.norm = me.dx && me.dz ? 0.78 : 1;

@@ -1,4 +1,4 @@
-// Krillion Latin: Survival Island mode (top-down pixel island).
+// Puffer: Survival Island mode (top-down pixel island).
 // Answer multiple-choice questions for energy (same rules as Factory: walking uses 10/s, standing is free,
 // at 0 you freeze). Explore the island to dig up hidden antiques (the same 20 items as Factory) and grab
 // coins, sell antiques at the Trader, and buy ship parts from the Shipwright. When the timer ends everyone
@@ -420,6 +420,13 @@ window.Island = (() => {
     return world.walk[(Math.floor(y) >> 1) * GW + (Math.floor(x) >> 1)] === 1;
   }
   const canStand = (x, y) => walkAt(x, y) && walkAt(x - 3, y) && walkAt(x + 3, y) && walkAt(x, y - 2);
+  // In the lobby everyone waits in a line in the village plaza (no walking until the game starts).
+  function lobbySpot(id) {
+    const list = S ? S.players.filter((p) => !p.gone) : [], i = list.findIndex((p) => p.id === id);
+    if (i < 0) return null;
+    const per = 8, row = Math.floor(i / per), inRow = Math.min(per, list.length - row * per), col = i % per;
+    return { x: PLAZA.x + (col - (inRow - 1) / 2) * 24, y: PLAZA.y + 22 + row * 24 };
+  }
   function posOf(id) {
     if (ctx && id === ctx.me.id && me.placed) return { x: me.x, y: me.y };
     const o = others.get(id); return o ? { x: o.x, y: o.y } : null;
@@ -616,6 +623,7 @@ window.Island = (() => {
       for (const p of S.players) {
         if (p.gone) continue;
         if (voy) { const sp = shipPos(p.id); if (sp) list.push({ y: sp.y + 21, f: () => drawPlayer(p, { x: sp.x, y: sp.y + 2 }, false, t, p.id === ctx.me.id) }); continue; }
+        if (S.phase === 'lobby') { const ls = lobbySpot(p.id); if (ls) list.push({ y: ls.y, f: () => drawPlayer(p, ls, false, t, p.id === ctx.me.id) }); continue; }
         if (p.id === ctx.me.id) { if (me.placed) list.push({ y: me.y + 0.01, f: () => drawPlayer(p, me, me.moving, t, true) }); continue; }
         const o = others.get(p.id);
         const pos = o ? { x: o.x, y: o.y } : fx && fx.sec[p.id] != null ? spawnPos(p.id) : null;
@@ -958,7 +966,7 @@ window.Island = (() => {
     if (!quiz.q && !quiz.next) { showLoading(); ctx.send({ t: 'fx-q', from: ctx.me.id }); }
     else if (!quiz.locked && quiz.next) showQuestion();
   }
-  function closeQuiz() { quizOpen = false; $('#fxQuiz').hidden = true; }
+  function closeQuiz() { if (quiz.wait && performance.now() >= quiz.readyAt) cont(); quizOpen = false; $('#fxQuiz').hidden = true; }
   function toggleQuiz() { quizOpen ? closeQuiz() : openQuiz(); }
   function showLoading() {
     $('#fxqTag').hidden = true; $('#fxqText').textContent = 'Loading a question…'; $('#fxqFocus').textContent = '';
@@ -1050,13 +1058,21 @@ window.Island = (() => {
     $('#isVerdict').innerHTML = sim.sunk < 0 ? `Right now your ship would reach <b>Safe Harbor</b> with <b>❤ ${sim.hp}</b> left.` : `Right now your ship would <b>sink at the ${esc(OBST[route[sim.sunk]].name)}</b>.`;
     $('#isVerdict').className = 'is-verdict ' + (sim.sunk < 0 ? 'ok' : 'bad');
     const groups = [['h', 'Hull'], ['s', 'Sails'], ['k', 'Keel'], ['x', 'Extras']];
-    $('#isParts').innerHTML = groups.map(([slot, label]) => `<div class="is-group"><span class="lbl">${label}</span><div class="is-grid">${PARTS.filter((p) => p.slot === slot && p.price > 0).map((p) => {
+    const ONE = { h: 'Your ship has one hull. A new hull replaces the old one; its stats don’t add up.', s: 'One sail set at a time. A new sail replaces the old one.', k: 'One keel at a time. A new keel replaces the old one.' };
+    $('#isParts').innerHTML = groups.map(([slot, label]) => `<div class="is-group"><span class="lbl">${label}</span>${ONE[slot] ? `<span class="is-one">${ONE[slot]}</span>` : ''}<div class="is-grid">${PARTS.filter((p) => p.slot === slot && p.price > 0).map((p) => {
       const have = owns(sh, p), current = p.slot !== 'x' && (sh[p.slot] || 0) === p.tier;
       const afford = cash >= p.price;
       const chips = Object.entries(p.st).map(([k, v]) => `<em>+${v} ${STAT_NAME[k]}</em>`).join('');
+      // tiered parts replace what you have: show the real change, e.g. "Hull 5 → 8"
+      const cur = p.slot !== 'x' && !have ? partFor(p.slot, sh[p.slot] || 0) : null;
+      let swap = '';
+      if (cur) {
+        const keys = [...new Set([...Object.keys(cur.st), ...Object.keys(p.st)])].filter((k) => (cur.st[k] || 0) !== (p.st[k] || 0));
+        swap = `<span class="pw">Replaces your ${esc(cur.name)}: ${keys.map((k) => { const a = cur.st[k] || 0, b2 = p.st[k] || 0; return `${STAT_NAME[k]} ${a} → ${b2} (${b2 - a >= 0 ? '+' : ''}${b2 - a})`; }).join(', ')}</span>`;
+      }
       const state = have ? (current || p.slot === 'x' ? 'Installed' : 'Upgraded') : money(p.price);
       return `<button class="is-part${have ? ' owned' : ''}${!have && !afford ? ' poor' : ''}" data-part="${p.id}" ${have || !afford ? 'disabled' : ''} title="${esc(p.desc)}">
-        <img src="${partIcon(p)}" alt=""><span class="pn">${esc(p.name)}</span><span class="ps">${chips}</span><b class="pp">${have ? '✓ ' : ''}${state}</b></button>`;
+        <img src="${partIcon(p)}" alt=""><span class="pn">${esc(p.name)}</span><span class="ps">${chips}</span>${swap}<b class="pp">${have ? '✓ ' : ''}${state}</b></button>`;
     }).join('')}</div></div>`).join('');
     // ship preview
     const c = $('#isShipPrev').getContext('2d');
@@ -1076,7 +1092,7 @@ window.Island = (() => {
   function onKey(e, down) {
     if (!active) return;
     if (down && !e.repeat && quizOpen) {
-      if (e.key !== 'Escape' && cont()) { e.preventDefault(); return; }
+      if (e.key !== 'Escape' && e.key !== ' ' && e.code !== 'Space' && cont()) { e.preventDefault(); return; } // Space and Esc always close
       if (/^[1-9]$/.test(e.key)) { answer(Number(e.key) - 1); e.preventDefault(); return; }
       if (e.key === 'Escape') { closeQuiz(); e.preventDefault(); return; }
     }
@@ -1325,8 +1341,13 @@ window.Island = (() => {
       const sp = shipPos(amPlaying() ? ctx.me.id : (fx.voyage && fx.voyage.rank[0]) || '');
       if (sp) { tx = sp.x; ty = sp.y; }
       me.dx = me.dy = 0; me.moving = false;
+    } else if (S.phase === 'lobby') {
+      // lobby: the camera rests on the plaza where everyone is lined up
+      const card = $('#lobbyCard'), left = card && window.innerWidth >= 900 && card.offsetWidth ? (card.offsetWidth + 24) / SCALE : 0;
+      tx = PLAZA.x - left / 2; ty = PLAZA.y - 10; me.placed = false;
+      me.dx = me.dy = 0; me.moving = false;
     } else {
-      // spectators (or the lobby) pan with the arrow keys; start over the village
+      // a host who isn't playing pans around with the arrow keys; start over the village
       if (!me.placed) { camx = PLAZA.x - view.cx; camy = PLAZA.y - 60 - view.cy; tx = PLAZA.x; ty = PLAZA.y - 60; me.placed = !amPlaying(); }
       tx += ((keys.right ? 1 : 0) - (keys.left ? 1 : 0)) * 260 * dt;
       ty += ((keys.down ? 1 : 0) - (keys.up ? 1 : 0)) * 260 * dt;

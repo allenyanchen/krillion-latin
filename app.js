@@ -1,4 +1,4 @@
-// Krillion Latin: app shell, router and pages.
+// Puffer: app shell, router and pages.
 (() => {
   'use strict';
   const $ = (s, r = document) => r.querySelector(s);
@@ -730,7 +730,7 @@
     if (name === 'game') {
       if (!Game.isActive()) { location.replace('#/join'); return; }
       $('#app').hidden = true; $('#gamePage').hidden = false;
-      document.title = 'Pufferfish Party · Krillion Latin';
+      document.title = 'Pufferfish Party · Puffer';
       return;
     }
     if (Game.isActive()) Game.leave();
@@ -748,7 +748,7 @@
     else pages.dashboard();
 
     const titles = { sets: 'Sets', set: 'Set', edit: 'Edit set', host: 'Host a game', characters: 'Characters', join: 'Join a game', signin: 'Sign in', profile: 'Profile' };
-    document.title = (titles[name] ? titles[name] + ' · ' : '') + 'Krillion Latin';
+    document.title = (titles[name] ? titles[name] + ' · ' : '') + 'Puffer';
     paintIcons(main);
     if (soft === true) return;
     main.classList.remove('enter'); void main.offsetWidth; main.classList.add('enter');

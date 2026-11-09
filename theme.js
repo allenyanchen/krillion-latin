@@ -1,4 +1,4 @@
-// Krillion Latin: site themes.
+// Puffer: site themes.
 // Approach (from common design-system practice):
 //  - One user-chosen seed (accent color) + a mode (dark / light) generates every color token.
 //  - Colors are built in OKLCH, where lightness steps look even across hues (unlike HSL).

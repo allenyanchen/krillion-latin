@@ -1,4 +1,4 @@
-// Krillion Latin: game page (Pufferfish Party).
+// Puffer: game page (Pufferfish Party).
 // The host's browser runs the game and broadcasts the state; players send "answer" / "pass".
 // Messages go through Supabase Realtime (online), or BroadcastChannel (local test mode).
 window.Game = (() => {
@@ -105,7 +105,7 @@ window.Game = (() => {
         else if (m.t === 'state' && m.s.code === code) {
           clearTimeout(joinTimer);
           onState(m.s);
-          if (joining) { joining = false; if (readyCb) readyCb(); } // only now show the game page
+          if (joining) { joining = false; Chat.system(`You joined room ${code}. Waiting for the host to start.`); if (readyCb) readyCb(); } // only now show the game page
         }
       },
       onRoster: (list) => {

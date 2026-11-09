@@ -1,4 +1,6 @@
-# Krillion Latin
+# Puffer
+
+_Formerly "Krillion Latin". The repo and the GitHub Pages address are still `krillion-latin`; internal names (`KRILLION_CONFIG`, `kl-` storage keys, `krillion-puffer-` channels) stay so saved data and rooms keep working._
 
 A pixel-art learning website for practicing Latin with your class. It's live at <https://allenyanchen.github.io/krillion-latin/>.
 

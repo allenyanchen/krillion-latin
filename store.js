@@ -1,4 +1,4 @@
-// Krillion Latin: profile, sets and stats, plus shared UI helpers.
+// Puffer: profile, sets and stats, plus shared UI helpers.
 // Signed out: everything lives in this browser (localStorage).
 // Signed in (Supabase Auth): name, character, stats and your sets sync to your account.
 (() => {

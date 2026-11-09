@@ -1,6 +1,6 @@
-# Krillion Latin: working rules
+# Puffer: working rules
 
-A static site (vanilla JS, no build step) hosted on GitHub Pages, with Supabase for logins and realtime multiplayer.
+Puffer (formerly Krillion Latin) is a static site (vanilla JS, no build step) hosted on GitHub Pages, with Supabase for logins and realtime multiplayer.
 `PLAN.md` describes every page and game mode. Keep it updated whenever rules or files change.
 
 ## Hard rules
@@ -93,3 +93,8 @@ Every color comes from `theme.js`, which generates tokens from one accent color 
   - It saves screenshots.
   - Expect `0 distinct issues`, then look at the light-theme and phone screenshots yourself.
 - Always check: a dark and a light theme, desktop (1366×768), and phone (390×844, touch).
+- **After anything big** (a new mode or feature, a big UI change, a rename, multiplayer changes), run the full sweep before calling it done, and report the results:
+  1. `node tools/platform-check.js <out-dir>`: every page and main action, desktop and phone; expect `no problems found`.
+  2. `node tools/ui-audit.js <out-dir>`: all themes and screens; expect `0 distinct issues`.
+  3. A **two-player** test of each touched mode: the host with "I'm playing too" on, plus a second player joining. Check both screens in the lobby (both characters visible, nobody can walk before the start), then play through to the results.
+  Single-player tests miss join and lobby bugs; the user found one that way.

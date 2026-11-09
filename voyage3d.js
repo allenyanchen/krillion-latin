@@ -1,4 +1,4 @@
-// Krillion Latin: Survival Island's storm voyage as a hand-drawn Three.js film.
+// Puffer: Survival Island's storm voyage as a hand-drawn Three.js film.
 // Flat cartoon shading plus an ink pass that traces every object's edges with wobbly black lines.
 // The film is a pure function of the elapsed time, so everyone in the room sees the same shot at
 // the same moment, and someone who joins late lands in the right place.
@@ -623,11 +623,11 @@ window.Voyage3D = (() => {
       b.holder.rotation.set(-pitch, yaw, roll, 'YXZ');
       // captain hops for joy, droops when hurt
       const cap = b.cap;
-      let hop = 0, squash = 1;
+      let hop = 0;
       if (s.kind === 'crew' && b === focus) hop = Math.max(0, Math.sin(u * Math.PI * 4)) * 0.5;
       if (s.kind === 'end' && r && r.sunk < 0 && u > 0.5) hop = Math.max(0, Math.sin(t * 7 + b.id.length)) * 0.6;
-      if (mine && u > 0.7) { if (mine.p) hop = Math.max(0, Math.sin((u - 0.7) * 30)) * 0.4; else squash = 0.82; }
-      cap.position.y = b.deckY + hop; cap.scale.set(1 / Math.sqrt(squash), squash, 1 / Math.sqrt(squash));
+      if (mine && u > 0.7) { if (mine.p) hop = Math.max(0, Math.sin((u - 0.7) * 30)) * 0.4; else hop = -0.12; } // hurt: a small dip (never squash the drawing)
+      cap.position.y = b.deckY + hop;
       const closeShot = s.kind === 'crew' || (s.kind === 'obs' && u >= 0.72) || (s.kind === 'end' && u >= 0.5);
       b.label.visible = b === focus ? s.kind === 'intro' || s.kind === 'sail' : s.kind !== 'crew' && !closeShot;
       for (const sl of b.parts.sails) sl.scale.z = 1 + Math.sin(t * 2 + b.id.length) * 0.15;
@@ -677,17 +677,16 @@ window.Voyage3D = (() => {
     ui.skip.hidden = !F.data.canSkip || over;
   }
 
-  // turn each captain cutout to face the camera (around the vertical axis), whatever the ship is doing
+  // turn each captain cutout to face the camera, whatever the ship is doing
   const _q = { p: null, w: null, t: null, e: null };
   function faceCamera(cam) {
     if (!_q.p) { _q.p = new T.Quaternion(); _q.w = new T.Vector3(); _q.t = new T.Quaternion(); _q.e = new T.Euler(); }
     for (const b of F.ships.values()) {
       if (!b.holder.visible) continue;
       const cap = b.cap; cap.parent.updateWorldMatrix(true, false);
-      cap.getWorldPosition(_q.w);
-      _q.t.setFromEuler(_q.e.set(0, Math.atan2(cam.position.x - _q.w.x, cam.position.z - _q.w.z), 0));
+      // screen-aligned: the cutout always lies flat to the camera, so it is never seen at a slant
       cap.parent.getWorldQuaternion(_q.p);
-      cap.quaternion.copy(_q.p.invert().multiply(_q.t));
+      cap.quaternion.copy(_q.p.invert().multiply(cam.quaternion));
     }
   }
 

@@ -1,4 +1,4 @@
-// Krillion Latin: pixel scene renderer.
+// Puffer: pixel scene renderer.
 // Draws a low-resolution canvas that CSS scales up with crisp (pixelated) edges.
 // Pseudo-3D look: one-point perspective on platform blocks, shading, depth sorting.
 window.Scene = (() => {
