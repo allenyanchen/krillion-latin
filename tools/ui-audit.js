@@ -113,6 +113,8 @@ function auditPage() {
   const errs = [];
   const newPage = async (name, opts = {}) => {
     const c = await b.newContext({ viewport: { width: 1366, height: 768 }, ...opts });
+    // no color transitions: otherwise a theme switch can be measured mid-fade
+    await c.addInitScript(() => document.addEventListener('DOMContentLoaded', () => { const s = document.createElement('style'); s.textContent = '*, *::before, *::after { transition: none !important; }'; document.head.append(s); }));
     const p = await c.newPage();
     p.on('pageerror', (e) => errs.push(name + ': ' + e.message));
     p.on('console', (m) => m.type() === 'error' && !/Failed to load resource/.test(m.text()) && errs.push(name + ': ' + m.text()));

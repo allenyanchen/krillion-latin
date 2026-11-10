@@ -220,6 +220,23 @@ window.Scene = (() => {
     for (let x = -10; x < W + 10; x += 34) branch(x + hash(x + 3) * 20, horizonY + 3, -Math.PI / 2 + (hash(x) - 0.5) * 0.3, 7 + hash(x + 9) * 7, 3);
     for (let x = -8; x < W + 8; x += 13) ellipseRows(g, x + hash(x + 1) * 8, horizonY + 2, 5 + hash(x + 2) * 8, 3 + hash(x + 4) * 4, '#0f3555', x);
     for (let x = -4; x < W + 4; x += 9) ellipseRows(g, x + hash(x + 5) * 6, horizonY + 4, 3 + hash(x + 6) * 5, 2 + hash(x + 7) * 2, '#123b5c', x + 50);
+    // nearer coral clusters along the back of the floor
+    const coral = ['#e2685e', '#f2a65a', '#c879d8', '#ff8fb1'];
+    for (let x = 8; x < W - 8; x += 26) {
+      if (hash(x * 3 + 1) < 0.35) continue;
+      const cx = x + hash(x + 21) * 14, cy = horizonY + 10 + hash(x + 22) * 10;
+      ellipseRows(g, cx, cy + 1, 5 + hash(x + 23) * 4, 2 + hash(x + 24) * 2, '#1b3f5e', x + 7);
+      g.fillStyle = coral[Math.floor(hash(x + 25) * coral.length)];
+      branch(cx, cy, -Math.PI / 2 + (hash(x + 26) - 0.5) * 0.4, 4 + hash(x + 27) * 4, 2);
+    }
+    // boulders and sand patches on the floor
+    for (let i = 0; i < 9; i++) {
+      const x = hash(i * 31 + 5) * W, y = horizonY + 24 + hash(i * 17 + 3) * (H - horizonY - 30), r = 4 + hash(i * 11) * 6;
+      ellipseRows(g, x, y + 1, r + 2, r * 0.5 + 1, 'rgba(110,190,230,0.07)', i);
+      if (hash(i * 7 + 2) < 0.5) continue;
+      ellipseRows(g, x, y, r, r * 0.6, '#1d4466', i + 3);
+      ellipseRows(g, x - 1, y - 1, r * 0.7, r * 0.35, '#29597f', i + 4);
+    }
   }
   function spike(g, cx, baseY, w, h, lightC, darkC, tipC) {
     for (let i = 0; i < h; i++) {
@@ -265,12 +282,13 @@ window.Scene = (() => {
 
   // ---------- Layout: players on a ring around the pit, you at the bottom ----------
   let ring = { cx: 0, cy: 0, rx: 80, ry: 30 };
+  const kelp = [], bubbles = [];
   function layout() {
     const list = [...ents.values()].filter((e) => !e.leaving);
     const n = list.length;
     const areaW = W - (insetR + insetL) / SCALE;
     const areaH = H - insetB / SCALE;
-    const top = Math.max(horizonY, insetT / SCALE) + 44, bottom = areaH - 22;
+    const top = Math.max(horizonY + 30, insetT / SCALE + 50), bottom = areaH - 24; // room for the fish and hearts above, names below
     const margin = Math.max(24, Math.min(50, areaW * 0.12));
     const rx = Math.max(40, Math.min(areaW / 2 - margin, ((bottom - top) / 2) * 2.6));
     const ry = Math.max(16, Math.min((bottom - top) / 2, rx * 0.9));
@@ -285,13 +303,26 @@ window.Scene = (() => {
       const cnt = inner ? n - outerN : outerN;
       const i = inner ? k - outerN : k;
       const sc = inner ? 0.58 : 1;
-      const a = Math.PI / 2 + (Math.PI * 2 * i) / cnt + (inner ? Math.PI / cnt : 0);
+      // two players stand on a diagonal so neither is stacked behind the pit
+      const a = Math.PI / 2 + (Math.PI * 2 * i) / cnt + (inner ? Math.PI / cnt : 0) + (n === 2 ? 0.75 : 0);
       e.tx = ring.cx + Math.cos(a) * rx * sc;
       e.ty = ring.cy + Math.sin(a) * ry * sc;
     });
-    const pr = clamp((two ? rx * 0.58 : rx) * 0.3, 16, 52);
-    if (!pit.c || Math.abs(pit.r - pr) > 1.5) { pit.r = pr; pit.ry = Math.max(6, Math.round(pr * Math.min(0.45, ry / rx))); pit.c = buildPit(pr, pit.ry); }
-    pit.tx = ring.cx; pit.ty = ring.cy;
+    // the pit fits in the gap between the back players' rocks and the front player's hearts
+    const front = ordered.length ? ordered[0].ty : ring.cy + ry; // you, at the bottom
+    const above = ordered.filter((e) => e.ty < front - 4 && Math.abs(e.tx - ring.cx) < rx * 0.5).map((e) => e.ty); // rocks right behind the pit
+    const gapTop = (above.length ? Math.max(...above) : ring.cy - ry) + 10, gapBot = front - 36;
+    const flat = Math.min(0.45, ry / rx), fitRy = Math.max(4, (gapBot - gapTop) / 2 - 2);
+    const pr = clamp(Math.min((two ? rx * 0.58 : rx) * 0.3, fitRy / flat), 12, 52);
+    if (!pit.c || Math.abs(pit.r - pr) > 1.5) { pit.r = pr; pit.ry = Math.max(5, Math.round(pr * flat)); pit.c = buildPit(pr, pit.ry); }
+    const pitY = gapBot > gapTop ? (gapTop + gapBot) / 2 : ring.cy;
+    kelp.length = 0;
+    // in the lower corners of the open water, below the side players
+    for (const side of [-1, 1]) for (let k = 0; k < 3; k++) {
+      const x = side < 0 ? insetL / SCALE + 10 + k * 9 : insetL / SCALE + areaW - 10 - k * 9;
+      kelp.push({ x: x + hash(k * 7 + side * 3 + 11) * 4, y: ring.cy + ry * 0.55 + hash(k * 13 + side) * 14, h: 16 + hash(k * 5 + side * 9) * 22, seed: k * 1.7 + side });
+    }
+    pit.tx = ring.cx; pit.ty = pitY;
     if (!pit.placed) { pit.x = pit.tx; pit.y = pit.ty; pit.placed = true; }
   }
 
@@ -356,7 +387,7 @@ window.Scene = (() => {
   }
   function right(id) {
     const e = ents.get(id); if (!e) return;
-    floatText(e.x, standY(e) - 32, '+100', '#ffd166', 8);
+    if (e.isMe) floatText(e.x + 26, standY(e) - 40, '+100', '#ffd166', 8);
     burst(e.x, standY(e) - 8, 14, ['#ffd166', '#7bd389', '#ffffff'], 70);
   }
   function pop(id, out) {
@@ -546,6 +577,8 @@ window.Scene = (() => {
       const b = heartBits[i]; b.vy += 300 * dt; b.x += b.vx * dt; b.y += b.vy * dt;
       if (t - b.t0 > 900) heartBits.splice(i, 1);
     }
+    if (kelp.length && Math.random() < dt * 1.2) { const k = kelp[(Math.random() * kelp.length) | 0]; bubbles.push({ x: k.x + 1, y: k.y - k.h, v: 10 + Math.random() * 8, p: Math.random() * 6 }); }
+    for (let i = bubbles.length - 1; i >= 0; i--) { const b = bubbles[i]; b.y -= b.v * dt; b.x += Math.sin(t / 400 + b.p) * 6 * dt; if (b.y < -4) bubbles.splice(i, 1); }
     for (const m of motes) { m.y -= m.v * dt; m.x += Math.sin(t / 1000 + m.p) * 4 * dt; if (m.y < -2) { m.y = H + 2; m.x = Math.random() * W; } }
     shake = Math.max(0, shake - dt * 18);
     flashA = Math.max(0, flashA - dt * 1.8);
@@ -568,6 +601,15 @@ window.Scene = (() => {
     ctx.globalAlpha = 1;
     for (const m of motes) { ctx.globalAlpha = m.a; rect('#cdefff', m.x, m.y, 1, 1); }
     ctx.globalAlpha = 1;
+    for (const k of kelp) {
+      ellipseRows(ctx, k.x, k.y + 1, 4, 1.5, 'rgba(5,20,35,0.35)');
+      for (let i = 0; i < k.h; i++) {
+        const sw = Math.sin(t / 900 + k.seed + i * 0.18) * i * 0.14;
+        rect(i % 6 < 3 ? '#1f7a5a' : '#28916a', k.x + sw, k.y - i, 2, 1);
+        if (i % 7 === 4) rect('#34a877', k.x + sw + (i % 14 === 4 ? 2 : -2), k.y - i, 2, 1);
+      }
+    }
+    for (const b of bubbles) { rect('#cdefff', b.x, b.y - 1, 1, 1); rect('#cdefff', b.x - 1, b.y, 1, 1); rect('#cdefff', b.x + 1, b.y, 1, 1); rect('#cdefff', b.x, b.y + 1, 1, 1); }
 
     const sx = shake > 0.3 ? Math.round((Math.random() - 0.5) * shake) : 0;
     const sy = shake > 0.3 ? Math.round((Math.random() - 0.5) * shake) : 0;

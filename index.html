@@ -15,18 +15,18 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800&family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen&family=Patrick+Hand&display=swap" rel="stylesheet">
   <meta name="theme-color" content="#011021">
-  <script src="theme.js?v=202611082124"></script>
-  <link rel="stylesheet" href="style.css?v=202611082124">
+  <script src="theme.js?v=202611092028"></script>
+  <link rel="stylesheet" href="style.css?v=202611092028">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-  <script src="config.js?v=202611082124"></script>
-  <script src="questions.js?v=202611082124"></script>
-  <script src="scene.js?v=202611082124" defer></script>
-  <script src="store.js?v=202611082124" defer></script>
-  <script src="factory.js?v=202611082124" defer></script>
-  <script src="voyage3d.js?v=202611082124" defer></script>
-  <script src="island.js?v=202611082124" defer></script>
-  <script src="game.js?v=202611082124" defer></script>
-  <script src="app.js?v=202611082124" defer></script>
+  <script src="config.js?v=202611092028"></script>
+  <script src="questions.js?v=202611092028"></script>
+  <script src="scene.js?v=202611092028" defer></script>
+  <script src="store.js?v=202611092028" defer></script>
+  <script src="factory.js?v=202611092028" defer></script>
+  <script src="voyage3d.js?v=202611092028" defer></script>
+  <script src="island.js?v=202611092028" defer></script>
+  <script src="game.js?v=202611092028" defer></script>
+  <script src="app.js?v=202611092028" defer></script>
 </head>
 <body>
   <!-- ============ App shell (dashboard pages) ============ -->
@@ -195,6 +195,11 @@
 
     <div id="statusPill" class="pill" hidden></div>
     <div id="aimHint" class="pill aim" hidden></div>
+    <div id="pfHud" class="fx-hud g-card pf-hud">
+      <div id="pfFuse" class="pf-fuse"><span id="pfWho" class="pf-who"></span><div class="energy"><span class="bolt" id="pfFish"></span><div class="bar"><i></i></div><b>0</b></div></div>
+      <ol id="pfBoard" class="fx-board"></ol>
+    </div>
+    <div id="pfBanner" class="fx-banner pf-banner" role="status" hidden></div>
 
     <div id="turnCard" class="g-card turn" hidden>
       <div class="turn-top"><span class="tag">Your turn!</span><span id="qTag" class="kind"></span></div>

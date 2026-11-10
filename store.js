@@ -214,6 +214,7 @@
     search: ['.xxxx....', 'x....x...', 'x....x...', 'x....x...', '.xxxx....', '.....xx..', '......xx.', '.......xx', '.........'],
     x: ['x.......x', '.x.....x.', '..x...x..', '...x.x...', '....x....', '...x.x...', '..x...x..', '.x.....x.', 'x.......x'],
     up: ['....x....', '...xxx...', '..xxxxx..', '.xxxxxxx.', 'xxxxxxxxx', '...xxx...', '...xxx...', '...xxx...', '...xxx...'],
+    heart: ['.xx...xx.', 'xxxx.xxxx', 'xxxxxxxxx', 'xxxxxxxxx', '.xxxxxxx.', '..xxxxx..', '...xxx...', '....x....'],
     bolt: ['.....xxx.', '....xxx..', '...xxx...', '..xxxxxx.', '.xxxxxx..', '...xxx...', '..xxx....', '.xxx.....', 'xx.......'],
     book: ['.........', 'xxx...xxx', 'x.xx.xx.x', 'x..xxx..x', 'x...x...x', 'x...x...x', 'x...x...x', 'xxx.x.xxx', '...xxx...'],
     users: ['.xx...xx.', 'xxxx.xxxx', 'xxxx.xxxx', '.xx...xx.', '.........', 'xxxx.xxxx', 'xxxx.xxxx', 'xxxx.xxxx', '.........'],

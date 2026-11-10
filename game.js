@@ -537,7 +537,13 @@ window.Game = (() => {
         if (ev.id === me.id) { const c = $('#turnCard'); c.classList.remove('shake'); void c.offsetWidth; c.classList.add('shake'); }
         break;
       case 'right': Scene.right(ev.id); if (ev.id === me.id) Store.bump('correct'); break;
-      case 'pop': Scene.pop(ev.id, ev.out); Fah.play(); break;
+      case 'pop': {
+        Scene.pop(ev.id, ev.out); Fah.play();
+        const p = s.players.find((q) => q.id === ev.id), who = ev.id === me.id ? 'You' : esc(p ? p.name : 'Someone');
+        const left = p ? p.lives : 0;
+        pfBanner(ev.out ? `💥 ${who} popped and ${ev.id === me.id ? 'are' : 'is'} <b>out</b>!` : `💥 ${who} popped! <b>${left}</b> ${left === 1 ? 'heart' : 'hearts'} left`);
+        break;
+      }
       case 'win':
         Scene.celebrate(ev.id);
         if (playing) { Store.bump('games'); if (ev.id === me.id) Store.bump('wins'); }
@@ -614,14 +620,45 @@ window.Game = (() => {
 
     let pill = '';
     if (s.phase === 'intro') pill = '🐡 Get ready…';
-    else if (s.phase === 'pop') pill = '💥 POP!';
     else if (s.phase === 'play' && !mine && holder) pill = s.awaitingPass ? `🎯 ${esc(holder.name)} is aiming…` : `✍️ ${esc(holder.name)} is answering…`;
     $('#statusPill').innerHTML = pill;
     $('#statusPill').hidden = !pill;
+    renderBoard(s);
+    renderFuse();
 
     renderOver(s);
     updateInsets();
   }
+
+  // ---------- HUD: who has the fish, the fuse, everyone's hearts and points ----------
+  let pfBannerTimer = 0;
+  function pfBanner(html, ms = 3000) {
+    const b = $('#pfBanner'); b.innerHTML = html; b.hidden = false;
+    b.classList.remove('in'); void b.offsetWidth; b.classList.add('in');
+    clearTimeout(pfBannerTimer); pfBannerTimer = setTimeout(() => (b.hidden = true), ms);
+  }
+  function renderBoard(s) {
+    const heart = UI.icon('heart'), fi = $('#pfFish');
+    if (!fi.firstChild) fi.innerHTML = UI.fish('pf-fish-ico');
+    const ranked = s.players.slice().sort((a, b) => (!!a.out - !!b.out) || (b.lives - a.lives) || (b.score - a.score));
+    $('#pfBoard').innerHTML = ranked.map((p, i) => `<li class="${p.id === me.id ? 'me' : ''}${p.out ? ' out' : ''}${p.id === s.holder ? ' holder' : ''}">
+      <span class="rank">${p.out ? '✕' : i + 1}</span><span class="dot" style="background:${Scene.COLORS[(p.look && p.look.c) || 0]}"></span>
+      <span class="nm">${p.id === s.holder ? UI.fish('pf-fish-ico') : ''}${esc(p.name)}${p.id === me.id ? ' (you)' : ''}</span>
+      <span class="hearts">${Array.from({ length: s.lives }, (_, k) => `<span class="${k < p.lives ? 'on' : ''}">${heart}</span>`).join('')}</span>
+      <b>${p.score}</b></li>`).join('');
+  }
+  function renderFuse() {
+    const s = S; if (!active || !s || modOf(s.mode)) return;
+    const holder = s.players.find((p) => p.id === s.holder);
+    const play = s.phase === 'play' && holder;
+    const left = play ? Math.max(0, localFuseEnd - Date.now()) : 0, total = Math.max(1, s.fuseTotal);
+    const el = $('#pfFuse');
+    el.querySelector('i').style.width = (play ? Math.min(100, (left / total) * 100) : 0) + '%';
+    el.querySelector('b').textContent = play ? Math.ceil(Math.min(left, total) / 1000) + 's' : '';
+    el.querySelector('.energy').classList.toggle('low', play && left < 5000);
+    $('#pfWho').innerHTML = s.phase === 'intro' ? 'Get ready…' : s.phase === 'pop' ? 'POP!' : play ? (holder.id === me.id ? '<b>You</b> have the pufferfish!' : `<b>${esc(holder.name)}</b> has the pufferfish`) : '';
+  }
+  setInterval(renderFuse, 100);
 
   function renderOver(s) {
     const factory = !!modOf(s.mode);
@@ -673,6 +710,9 @@ window.Game = (() => {
     let l = 0, t = top;
     if (lobby) { if (wide) l = $('#lobbyCard').offsetWidth + 28; else t = top + $('#lobbyCard').offsetHeight + 8; }
     let b = ['play', 'pop', 'intro'].includes(phase) ? (wide ? 200 : 230) : 76;
+    const card = $('#turnCard'); if (!card.hidden) b = Math.max(b, window.innerHeight - card.getBoundingClientRect().top + 8);
+    // the HUD card sits top-left during the game: keep the ring clear of it
+    if (['play', 'pop', 'intro'].includes(phase)) { const hud = $('#pfHud'); if (wide) l = hud.offsetWidth + 28; else t = Math.max(t, hud.getBoundingClientRect().bottom + 8); }
     if ($('#drawer').classList.contains('open')) b = Math.max(b, $('#drawerBody').offsetHeight + 70);
     Scene.setInsets({ r, b, l, t });
   }
