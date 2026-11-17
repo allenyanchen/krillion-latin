@@ -17,8 +17,8 @@ A left sidebar (a bottom tab bar on phones) links to four pages.
 
 **Hosting** opens its own page:
 1. Pick a set.
-2. Pick a game mode. Pufferfish Party is available now; *Quiz Race* and *Team Tide* are placeholders marked "coming soon".
-3. Choose your settings: hearts per player, the starting timer, and whether you're playing too.
+2. Pick a game mode: Pufferfish Party, Factory, Survival Island or Via Golf. *Team Tide* is a placeholder marked "coming soon".
+3. Choose that mode's settings (for example hearts and the starting timer, or holes and time per hole) and whether you're playing too.
 4. **Create room**.
 
 ### Sets and questions
@@ -147,6 +147,18 @@ A left sidebar (a bottom tab bar on phones) links to four pages.
 9. **Winning:** the ship that gets furthest wins; ties go to most hull points left, then the stronger ship, then money left.
 10. **Networking:** same as Factory: the host decides digs, coins, sales, purchases, energy and the voyage results; positions are dead-reckoned. Treasure contents stay on the host until someone digs them up.
 
+### Via Golf rules
+1. **The course:** 2D top-down mini golf through Roman landmarks, in the same pixel style: *Via Appia* (par 2), *Forum Fountain* (par 3), *Aqueduct* (par 4), *Circus Maximus* (par 3), *Tiber Bridge* (par 3), *Colosseum* (par 4). The host picks **3 or 6 holes** (the first three or all six) and **1, 1.5 or 2 minutes per hole** (default 1.5). Each hole fills the space the HUD leaves free: between the info card and the chat on a computer, under the info card on a phone.
+2. **Lobby:** everyone stands in a line at the first tee; nobody can shoot until the host starts.
+3. **Shots come from questions:** everyone starts with none. Each correct answer in the shared quiz gives **one shot**, and you can save up to **3**. The quiz opens by itself at the start; a wrong answer gives nothing and makes you wait 3 seconds, as in the other modes. The shot counter sits where the energy bar is in the other modes.
+4. **Shooting:** with a shot saved and your ball at rest, **drag back anywhere on the hole and let go**: a dotted aim line shows the direction and power (green, yellow, red). The button equivalent: **E** (or the on-screen E) shows the aim, **A/D** or **◀ ▶** turn it, **W/S** or **▲ ▼** set the power, and **E** shoots. Dragging without a saved shot says "Answer a question to get a shot".
+5. **Everyone plays the same hole at once.** Balls pass through each other. Each player's character stands beside their ball.
+6. **The course pieces:** walls and marble columns bounce the ball; **sand** slows it a lot; **slopes** (moving arrows) push it; **water** sends it back to where it was hit from with **+1 stroke** and a splash.
+7. **Sinking:** a ball rolling slowly over the cup drops in. You see how you did ("Hole in one!", "Birdie!", "Par", "Bogey"…); everyone else gets a short banner ("Livia sank it in 3!").
+8. **Ending a hole:** when every ball is in, or time runs out (the clock is in the top bar), a short recap shows your score for the hole, then everyone starts the next hole at its tee. Anyone who didn't finish scores **par + 3**, or their strokes + 1 if that is more. Saved shots carry over.
+9. **Winning:** the fewest total strokes after the last hole wins. The results list everyone's strokes and how far over or under par they are.
+10. **Networking:** the host decides everything. A player sends only the shot (a whole-number speed and direction); the host rolls the ball and broadcasts where it stops. The roll uses only exact arithmetic, so every screen plays back exactly the same path; your own shot starts rolling immediately on your screen.
+
 ### Answer checking
 - Capitals, spaces and macrons are ignored, and *j* counts as *i*.
 - For passive 2nd-person singular answers, the alternate *-re* ending is also accepted.
@@ -175,6 +187,7 @@ GitHub Pages only serves files, so live play goes through **Supabase Realtime** 
 | `game.js` | Multiplayer, host game logic, chat, drawer, music and sounds |
 | `factory.js` | Factory mode: parallax renderer, conveyors, items, movement, bins and stealing, host rules, minimap |
 | `island.js` | Survival Island: island generator and renderer, digging, coins, trader, shipwright shop, ships, storm voyage, host rules, minimap |
+| `golf.js` | Via Golf: the six holes as text maps, the ball physics, aiming (drag or keys), course renderer, host rules and scoring |
 | `voyage3d.js` | Survival Island's storm film: Three.js scene, ink-outline pass, ships built from parts, characters, camera shots, story captions |
 | `scene.js` | Pixel renderer: seafloor, rocks, characters, pufferfish, effects |
 | `questions.js` | Built-in sets |
@@ -185,4 +198,5 @@ GitHub Pages only serves files, so live play goes through **Supabase Realtime** 
 - Share sets with your class (the `is_public` column is ready for this).
 - More characters.
 - Quiz Race (multiple choice) and Team Tide modes.
+- Via Golf: moving pieces (a turning waterwheel), more holes, a 3D replay of a hole in one.
 - Host tools: kick a player, mute chat.

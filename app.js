@@ -442,6 +442,10 @@
               <div class="mode-art ico-art"><i data-icon="island"></i></div>
               <div><h3>Survival Island</h3><p>Answer for energy, dig up hidden antiques, sell them and build a ship. When time runs out, sail through the storm. Best ship wins!</p><span class="chip">Multiple choice · Exploring</span></div>
             </button>
+            <button class="card mode" data-mode="golf" aria-pressed="false">
+              <div class="mode-art ico-art"><i data-icon="flag"></i></div>
+              <div><h3>Via Golf</h3><p>Answer for shots, then putt through Roman landmarks. Everyone plays the same hole at once. Fewest strokes wins!</p><span class="chip">Multiple choice · Aiming</span></div>
+            </button>
             <div class="card mode soon"><div class="mode-art ico-art"><i data-icon="users"></i></div><div><h3>Team Tide</h3><p>Split into teams and battle it out.</p><span class="chip">Coming soon</span></div></div>
           </div>
         </section>
@@ -475,6 +479,13 @@
             <div class="seg" id="hIsGain">${[50, 100, 150, 200].map((v) => `<button data-v="${v}" class="${v === 100 ? 'on' : ''}">+${v}</button>`).join('')}</div>
             <p class="note">Easy has more treasure and a gentler storm. Hard hides less treasure and adds the Kraken.</p>
           </div>
+          <div id="hGolf" class="opt-group" hidden>
+            <span class="lbl">Holes</span>
+            <div class="seg" id="hGfHoles">${[3, 6].map((v) => `<button data-v="${v}" class="${v === 3 ? 'on' : ''}">${v} holes</button>`).join('')}</div>
+            <span class="lbl">Time per hole</span>
+            <div class="seg" id="hGfSecs">${[[60, '1 min'], [90, '1.5 min'], [120, '2 min']].map(([v, l]) => `<button data-v="${v}" class="${v === 90 ? 'on' : ''}">${l}</button>`).join('')}</div>
+            <p class="note">Each correct answer gives one shot. If time runs out, a hole counts as par + 3.</p>
+          </div>
           <label class="toggle"><input type="checkbox" id="hPlay" checked><span></span>I'm playing too</label>
           <p class="note">Turn this off to just run the game from the front of the room.</p>
           <button class="btn primary big" id="hGo" ${n ? '' : 'disabled'}><i data-icon="play"></i>Create room</button>
@@ -483,24 +494,25 @@
       </div>`;
     $('[data-fish-big]', main).innerHTML = UI.fish('fish-art');
     $('#hLives').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; lives = Number(b.dataset.v); $$('#hLives button').forEach((x) => x.classList.toggle('on', x === b)); };
-    let mode = 'puffer', winMode = 'time', minutes = 5, goal = 2500, gain = 100, diff = 'medium', isMinutes = 6, isGain = 100;
+    let mode = 'puffer', winMode = 'time', minutes = 5, goal = 2500, gain = 100, diff = 'medium', isMinutes = 6, isGain = 100, gfHoles = 3, gfSecs = 90;
     const segPick = (sel, fn) => { $(sel).onclick = (e) => { const b = e.target.closest('button'); if (!b) return; $$(sel + ' button').forEach((x) => x.classList.toggle('on', x === b)); fn(b.dataset.v); }; };
     segPick('#hWin', (v) => { winMode = v; $('#hMinRow').hidden = v !== 'time'; $('#hGoalRow').hidden = v !== 'money'; });
     segPick('#hMin', (v) => (minutes = Number(v)));
     segPick('#hGoal', (v) => (goal = Number(v)));
     segPick('#hGain', (v) => (gain = Number(v)));
     segPick('#hDiff', (v) => (diff = v)); segPick('#hIsMin', (v) => (isMinutes = Number(v))); segPick('#hIsGain', (v) => (isGain = Number(v)));
+    segPick('#hGfHoles', (v) => (gfHoles = Number(v))); segPick('#hGfSecs', (v) => (gfSecs = Number(v)));
     $$('.mode[data-mode]').forEach((c) => (c.onclick = () => {
       mode = c.dataset.mode;
       $$('.mode[data-mode]').forEach((x) => { x.classList.toggle('selected', x === c); x.setAttribute('aria-pressed', x === c); });
-      $('#hPuffer').hidden = mode !== 'puffer'; $('#hFactory').hidden = mode !== 'factory'; $('#hIsland').hidden = mode !== 'island';
+      $('#hPuffer').hidden = mode !== 'puffer'; $('#hFactory').hidden = mode !== 'factory'; $('#hIsland').hidden = mode !== 'island'; $('#hGolf').hidden = mode !== 'golf';
     }));
     $('#hFuse').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; fuse = Number(b.dataset.v); $$('#hFuse button').forEach((x) => x.classList.toggle('on', x === b)); };
     $('#hGo').onclick = () => {
       const nm = $('#hName').value.trim();
       if (!nm) { $('#hName').classList.add('invalid'); $('#hName').focus(); return UI.toast('Enter your name first.'); }
       Store.setName(nm);
-      Game.host(set, { mode, lives, fuseStart: fuse, winMode, minutes, goal, gain, diff, isMinutes, isGain, hostPlays: $('#hPlay').checked });
+      Game.host(set, { mode, lives, fuseStart: fuse, winMode, minutes, goal, gain, diff, isMinutes, isGain, gfHoles, gfSecs, hostPlays: $('#hPlay').checked });
       location.hash = '#/game';
     };
   };

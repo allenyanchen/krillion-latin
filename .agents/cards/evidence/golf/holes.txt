@@ -1,0 +1,6 @@
+1. Via Appia       par 2 | fewest strokes found: 2 | water hits seen: 0 | longest roll 1.4 s | same input same result: true
+2. Forum Fountain  par 3 | fewest strokes found: 1 | water hits seen: 15 | longest roll 1.3 s | same input same result: true
+3. Aqueduct        par 4 | fewest strokes found: 2 | water hits seen: 24350 | longest roll 4.0 s | same input same result: true
+4. Circus Maximus  par 3 | fewest strokes found: 2 | water hits seen: 0 | longest roll 1.4 s | same input same result: true
+5. Tiber Bridge    par 3 | fewest strokes found: 2 | water hits seen: 35696 | longest roll 1.5 s | same input same result: true
+6. Colosseum       par 4 | fewest strokes found: 2 | water hits seen: 0 | longest roll 1.9 s | same input same result: true

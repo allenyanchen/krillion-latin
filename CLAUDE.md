@@ -24,6 +24,11 @@ From [forrestchang/andrej-karpathy-skills](https://github.com/forrestchang/andre
    - For multi-step work, state a short plan: `1. step → verify: check`.
    - In this project, "verified" for anything big means the sweep under **Checking work** passes.
 
+## Approach cards (SensibleCode)
+This repo is opted into the SensibleCode `card` skill (`.agents/cards/`, settings in `.agents/cards/config`). Every edit to a `.js`, `.css` or `.html` file needs an open card that lists that exact path; the plugin's hook blocks the edit otherwise.
+- A new feature gets a full card (copy the skill's `card/TEMPLATE.md`); a fix to existing files gets a `# Fix:` card (Broke, Root cause, Existing files, Expected behavior).
+- At the end, record PASS / FAIL / UNTESTED under each Expected behavior bullet with an evidence file in `.agents/cards/evidence/<card>/`, fill Replaces and Review, then run the validator with `--closeout`. A card whose checks all PASS is closed.
+
 ## Hard rules
 - Never put the Supabase service_role / secret key in the site. `config.js` holds only the public key.
 - Keep `*.pdf` (source worksheets) out of the repo (already in `.gitignore`).
@@ -100,10 +105,10 @@ Every color comes from `theme.js`, which generates tokens from one accent color 
   | Layout | Bottom-left stack | Elsewhere |
   |---|---|---|
   | Desktop | key hints 12, energy 48, answer button 100, backpack 152 | prompt centered at 64 |
-  | Touch (`pointer: coarse`) | D-pad, then energy 186, answer button 238, backpack 290 | prompt 342 |
+  | Touch (`pointer: coarse`) | D-pad, then energy 186, answer button 238, backpack 290 | prompt 342 (Via Golf has no backpack: prompt 290) |
 
   The top bar is `.g-top` and the info card is `.fx-hud`. New HUD pieces must fit this stack. Touch overrides go at the **end** of `style.css` so they win.
-- **Touch:** no keyboard hints (hide `kbd`); every action needs an on-screen button.
+- **Touch:** no keyboard hints (hide `kbd`); every action needs an on-screen button; every control is at least 44×44 px where a finger reaches it (the `pointer: coarse` block at the end of `style.css`). Big overlays such as the closed Customize drawer take taps only on their visible part.
 
 ## Libraries and 3D
 - No build step and no npm packages in the site. External scripts come only from cdnjs (pinned version), loaded lazily where needed. Three.js 0.160.0 is imported in `voyage3d.js` when the island starts.

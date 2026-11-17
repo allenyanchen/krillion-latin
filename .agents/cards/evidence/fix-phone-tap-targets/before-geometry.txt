@@ -1,0 +1,61 @@
+Phone (390x844, touch) hit-tested tap targets under 44 px, before the fix. Source: probe/snapshot.js + geometry rules, parchment theme.
+screen | control | reachable area (w x h) | box
+factory-phone-lobby | button 'Move forward' | 52x30 | 52x52 at 68,780
+factory-phone-lobby | button 'Leave' | 42x36 | 42x35 at 18,20
+factory-phone-lobby | button '' | 30x34 | 30x34 at 286,20
+factory-phone-lobby | button '0' | 42x36 | 42x35 at 330,20
+factory-phone-lobby | button 'Copy invite link' | 165x29 | 165x29 at 201,164
+factory-phone-lobby | button 'Most money' | 125x33 | 124x33 at 66,254
+factory-phone-lobby | button 'First to goal' | 132x33 | 131x33 at 194,254
+factory-phone-lobby | button '2m' | 51x33 | 50x33 at 89,331
+factory-phone-lobby | button '3m' | 50x33 | 50x33 at 143,331
+factory-phone-lobby | button '5m' | 50x33 | 50x33 at 197,331
+factory-phone-lobby | button '8m' | 51x33 | 50x33 at 251,331
+factory-phone-lobby | button '+50' | 57x33 | 57x33 at 64,408
+factory-phone-lobby | button '+100' | 65x33 | 63x33 at 125,408
+factory-phone-lobby | button '+150' | 64x33 | 63x33 at 192,408
+factory-phone-lobby | button '+200' | 67x33 | 66x33 at 260,408
+factory-phone-lobby | button 'Customize' | 148x34 | 146x40 at 122,810
+factory-phone-play | button 'Move forward' | 52x30 | 52x52 at 68,780
+factory-phone-play | button 'Leave' | 42x36 | 42x35 at 18,20
+factory-phone-play | button '' | 30x34 | 30x34 at 286,20
+factory-phone-play | button '0' | 42x36 | 42x35 at 330,20
+factory-phone-play | button 'Customize' | 148x34 | 146x40 at 122,810
+factory-phone-quiz | button 'Back to factory Space' | 165x39 | 164x39 at 16,78
+island-phone-lobby | button 'Move forward' | 52x30 | 52x52 at 68,780
+island-phone-lobby | button 'Leave' | 42x36 | 42x35 at 18,20
+island-phone-lobby | button '' | 30x34 | 30x34 at 286,20
+island-phone-lobby | button '0' | 42x36 | 42x35 at 330,20
+island-phone-lobby | button 'Copy invite link' | 165x29 | 165x29 at 201,164
+island-phone-lobby | button 'Easy' | 68x33 | 67x33 at 81,254
+island-phone-lobby | button 'Medium' | 86x33 | 85x33 at 152,254
+island-phone-lobby | button 'Hard' | 68x33 | 67x33 at 242,254
+island-phone-lobby | button '4m' | 51x33 | 50x33 at 86,331
+island-phone-lobby | button '6m' | 51x33 | 50x33 at 140,331
+island-phone-lobby | button '8m' | 51x33 | 50x33 at 194,331
+island-phone-lobby | button '10m' | 58x33 | 57x33 at 248,331
+island-phone-lobby | button '+50' | 57x33 | 57x33 at 64,408
+island-phone-lobby | button '+100' | 65x33 | 63x33 at 125,408
+island-phone-lobby | button '+150' | 64x33 | 63x33 at 192,408
+island-phone-lobby | button '+200' | 67x33 | 66x33 at 260,408
+island-phone-lobby | button 'Customize' | 148x34 | 146x40 at 122,810
+island-phone-play | button 'Move forward' | 52x30 | 52x52 at 68,780
+island-phone-play | button 'Leave' | 42x36 | 42x35 at 18,20
+island-phone-play | button '' | 30x34 | 30x34 at 286,20
+island-phone-play | button '0' | 42x36 | 42x35 at 330,20
+island-phone-play | button 'Customize' | 148x34 | 146x40 at 122,810
+island-phone-quiz | button 'Back to the island Space' | 178x39 | 177x39 at 16,78
+island-phone-shop | button 'Close E' | 74x39 | 74x39 at 296,20
+phone-dashboard | textbox 'Game code' | 246x41 | 245x41 at 36,481
+phone-dashboard | button 'Join' | 65x41 | 65x41 at 289,481
+phone-host | link 'Back to set' | 121x19 | 120x19 at 16,21
+phone-host | link 'Change' | 73x30 | 73x29 at 281,215
+puffer-lobby-guest | button 'Leave' | 42x36 | 42x35 at 18,20
+puffer-lobby-guest | button '' | 30x34 | 30x34 at 286,20
+puffer-lobby-guest | button '0' | 42x36 | 42x35 at 330,20
+puffer-lobby-guest | button 'Copy invite link' | 165x29 | 165x29 at 201,164
+puffer-lobby-guest | button 'Customize' | 148x34 | 146x40 at 122,810
+puffer-play-guest | button 'Leave' | 42x36 | 42x35 at 18,20
+puffer-play-guest | button '' | 30x34 | 30x34 at 286,20
+puffer-play-guest | button '0' | 42x36 | 42x35 at 330,20
+puffer-play-guest | button 'Customize' | 148x34 | 146x40 at 122,810

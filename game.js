@@ -8,9 +8,10 @@ window.Game = (() => {
   const esc = UI.esc;
   const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const pick = (a) => a[Math.floor(Math.random() * a.length)];
-  // Movement modes (Factory, Survival Island) share the same host/client hooks.
-  const modOf = (m) => (m === 'island' ? Island : m === 'factory' ? Factory : null);
-  const LABELS = { puffer: '🐡 Pufferfish Party', factory: '🏭 Factory', island: '🏝️ Survival Island' };
+  // Movement modes (Factory, Survival Island, Via Golf) share the same host/client hooks.
+  const modOf = (m) => (m === 'island' ? Island : m === 'factory' ? Factory : m === 'golf' ? Golf : null);
+  const LABELS = { puffer: '🐡 Pufferfish Party', factory: '🏭 Factory', island: '🏝️ Survival Island', golf: '⛳ Via Golf' };
+  const TITLES = { factory: 'Factory', island: 'Survival Island', golf: 'Via Golf' };
 
   const cfg = window.KRILLION_CONFIG || {};
   const ONLINE = !!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY && window.supabase);
@@ -160,7 +161,7 @@ window.Game = (() => {
         players: [], holder: null, awaitingPass: false, qx: null, qSerial: 0,
         fuseLeft: 0, fuseTotal: 1, round: 0, feed: [], result: null, ev: null, winner: null,
       };
-      S.mode = opts.mode === 'factory' || opts.mode === 'island' ? opts.mode : 'puffer';
+      S.mode = modOf(opts.mode) ? opts.mode : 'puffer';
       if (modOf(S.mode)) S.fx = modOf(S.mode).host.initState(opts);
       this.colorMap = new Map(); this.lastActive = Date.now();
       this.firstSeen = new Map([[me.id, 0]]); this.seenN = 1; this.rejected = new Set();
@@ -260,11 +261,10 @@ window.Game = (() => {
     start() {
       this.rebuildLobby();
       if (modOf(S.mode)) {
-        const island = S.mode === 'island';
-        if (!S.players.length) return UI.toast(island ? 'The island needs at least 1 player.' : 'The factory needs at least 1 player.');
+        if (!S.players.length) return UI.toast(`${TITLES[S.mode]} needs at least 1 player.`);
         S.feed = []; S.winner = null;
         modOf(S.mode).host.start(S, this.src);
-        this.log(island ? '🏝️ Everyone washed up on the island. Build a ship before the storm!' : '🏭 The factory is open!');
+        this.log({ island: '🏝️ Everyone washed up on the island. Build a ship before the storm!', factory: '🏭 The factory is open!', golf: '⛳ Tee off!' }[S.mode]);
         this.touch();
         this.broadcast();
         return;
@@ -559,7 +559,7 @@ window.Game = (() => {
     const factory = !!modOf(s.mode), island = s.mode === 'island';
     page.dataset.mode = s.mode;
     $('#gMode').textContent = LABELS[s.mode] || LABELS.puffer;
-    $('#gSet').textContent = island ? 'Survival Island' : factory ? 'Factory' : s.setTitle || 'Pufferfish Party';
+    $('#gSet').textContent = TITLES[s.mode] || s.setTitle || 'Pufferfish Party';
     $('#gCode').textContent = s.code;
     $('#gPlayers').textContent = `${s.players.length} player${s.players.length === 1 ? '' : 's'}`;
     $('#gRound').textContent = factory ? modOf(s.mode).statusText(s) : s.phase === 'lobby' ? 'Lobby' : s.round ? `Round ${s.round}` : 'Starting';
@@ -573,7 +573,11 @@ window.Game = (() => {
       document.querySelectorAll('#heartsSeg button').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === s.lives));
       document.querySelectorAll('#timerSeg button').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === s.fuseStart));
       $('#playToggle').checked = s.hostPlays;
-      $('#pufferOpts').hidden = factory; $('#factoryOpts').hidden = s.mode !== 'factory'; $('#islandOpts').hidden = !island;
+      $('#pufferOpts').hidden = factory; $('#factoryOpts').hidden = s.mode !== 'factory'; $('#islandOpts').hidden = !island; $('#golfOpts').hidden = s.mode !== 'golf';
+      if (s.mode === 'golf') {
+        document.querySelectorAll('#gfHolesSeg button').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === s.fx.holes));
+        document.querySelectorAll('#gfSecsSeg button').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === s.fx.secs));
+      }
       if (island) {
         const f = s.fx;
         document.querySelectorAll('#isDiffSeg button').forEach((b) => b.classList.toggle('on', b.dataset.v === f.diff));
@@ -589,7 +593,7 @@ window.Game = (() => {
       }
       const need = factory ? 1 : 2, ok = s.players.length >= need;
       $('#startBtn').disabled = !ok;
-      $('#startHint').textContent = ok ? (factory ? `${s.players.length} ${island ? 'castaway' : 'worker'}${s.players.length === 1 ? '' : 's'} ready` : `${s.players.length} players ready · ${s.setCount} questions`) : `Waiting for at least ${need} players…`;
+      $('#startHint').textContent = ok ? (factory ? `${s.players.length} ${{ island: 'castaway', factory: 'worker', golf: 'golfer' }[s.mode]}${s.players.length === 1 ? '' : 's'} ready` : `${s.players.length} players ready · ${s.setCount} questions`) : `Waiting for at least ${need} players…`;
     }
     if (factory) { renderOver(s); return; }
 
@@ -677,6 +681,15 @@ window.Game = (() => {
       const ids = V ? V.rank : [];
       const ranked = ids.map((id) => s.players.find((p) => p.id === id)).filter(Boolean);
       $('#standings').innerHTML = ranked.map((p) => `<li><span>${esc(p.name)}${p.id === me.id ? ' (you)' : ''}</span><span>${line(p.id)}</span></li>`).join('');
+      $('#againBtn').hidden = !me.host; $('#againWait').hidden = me.host;
+    } else if (over && s.mode === 'golf') {
+      const w = s.players.find((p) => p.id === s.winner), f = s.fx;
+      let par = 0; for (let i = 0; i < f.holes; i++) par += Golf.HOLES[i].par;
+      const toPar = (n) => (n === 0 ? 'even' : n > 0 ? '+' + n : '−' + -n);
+      $('#winnerName').textContent = w ? (w.id === me.id ? 'You win!' : `${w.name} wins!`) : 'Game over';
+      $('#overSub').textContent = `fewest strokes over ${f.holes} holes (par ${par})`;
+      const ranked = s.players.filter((p) => f.sec[p.id] != null).sort((a, b) => a.score - b.score);
+      $('#standings').innerHTML = ranked.map((p) => `<li><span>${esc(p.name)}${p.id === me.id ? ' (you)' : ''}</span><span>${p.score} strokes (${toPar(p.score - par)})</span></li>`).join('');
       $('#againBtn').hidden = !me.host; $('#againWait').hidden = me.host;
     } else if (over && factory) {
       const w = s.players.find((p) => p.id === s.winner);
@@ -783,7 +796,7 @@ window.Game = (() => {
     const p = Store.profile();
     me.name = p.name; me.look = p.look;
     active = true; S = null; roster = []; prevRoster = null; lastEvN = -1; lastQSerial = -1; joinedAt = Date.now();
-    Factory.deactivate(); Island.deactivate();
+    Factory.deactivate(); Island.deactivate(); Golf.deactivate();
     $('#gamePage').dataset.mode = 'puffer';
     Scene.reset();
     Chat.reset();
@@ -828,7 +841,7 @@ window.Game = (() => {
       transport = null; S = null; me.host = false;
       Scene.setAim(false);
       Scene.setActive(false);
-      Factory.deactivate(); Island.deactivate();
+      Factory.deactivate(); Island.deactivate(); Golf.deactivate();
       Music.stop();
       $('#fah').hidden = true;
     },
@@ -836,9 +849,11 @@ window.Game = (() => {
       buildDrawer();
       Factory.attach({ me, send: (msg) => { if (transport) transport.send(msg); } });
       Island.attach({ me, send: (msg) => { if (transport) transport.send(msg); } });
+      Golf.attach({ me, send: (msg) => { if (transport) transport.send(msg); } });
       const fxSeg = (sel, key, num) => document.querySelectorAll(sel + ' button').forEach((b) => (b.onclick = () => Host.configure({ fx: { [key]: num ? Number(b.dataset.v) : b.dataset.v } })));
       fxSeg('#fxWinSeg', 'winMode', false); fxSeg('#fxMinSeg', 'minutes', true); fxSeg('#fxGoalSeg', 'goal', true); fxSeg('#fxGainSeg', 'gain', true);
       fxSeg('#isDiffSeg', 'diff', false); fxSeg('#isMinSeg', 'minutes', true); fxSeg('#isGainSeg', 'gain', true);
+      fxSeg('#gfHolesSeg', 'holes', true); fxSeg('#gfSecsSeg', 'secs', true);
       $('#answerForm').onsubmit = (e) => {
         e.preventDefault();
         const v = $('#answerIn').value.trim();

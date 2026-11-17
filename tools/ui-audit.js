@@ -177,7 +177,7 @@ function auditPage() {
     await h.context().close(); await g.context().close();
   }
 
-  // ---------- Factory and Survival Island ----------
+  // ---------- Factory, Survival Island and Via Golf ----------
   const movement = async (mode) => {
     if (ONLY && !mode.includes(ONLY) && !ONLY.includes(mode)) return;
     const p = await newPage(mode);
@@ -186,7 +186,7 @@ function auditPage() {
     await p.waitForTimeout(1600);
     await sweep(p, mode + '-lobby');
     await p.click('#startBtn');
-    const M = mode === 'island' ? 'Island' : 'Factory';
+    const M = { island: 'Island', factory: 'Factory', golf: 'Golf' }[mode];
     await p.waitForFunction((m) => window[m].debug().started, M, { timeout: 12000 });
     await p.waitForSelector('#fxqChoices .tile', { timeout: 8000 });
     await sweep(p, mode + '-quiz');
@@ -195,8 +195,19 @@ function auditPage() {
     for (const t of await p.$$('#fxqChoices .tile')) if (!(await t.textContent()).includes(right)) { await t.click(); break; }
     await p.waitForTimeout(3300); await sweep(p, mode + '-quiz-wrong');
     await p.keyboard.press('Escape'); await p.waitForTimeout(200);
-    await p.evaluate(({ id }) => { const s = Game.debugState(); s.fx.energy[id] = 30; }, { id: hostId });
-    if (mode === 'island') {
+    if (mode !== 'golf') await p.evaluate(({ id }) => { const s = Game.debugState(); s.fx.energy[id] = 30; }, { id: hostId });
+    if (mode === 'golf') {
+      await p.evaluate((id) => { Game.debugState().fx.shots[id] = 2; }, hostId);
+      await p.waitForTimeout(500); await sweep(p, 'golf-play');
+      await p.keyboard.press('e'); await p.waitForTimeout(300); await sweep(p, 'golf-aim');
+      await p.evaluate(() => { const f = Game.debugState().fx; f.holes = f.hole + 1; f.holeEnd = Date.now(); });
+      await p.waitForTimeout(800);
+      await p.evaluate(() => { Game.debugState().fx.between = Date.now() + 60000; }); // hold the recap while every theme is checked
+      await sweep(p, 'golf-recap');
+      await p.evaluate(() => { Game.debugState().fx.between = Date.now(); });
+      await p.waitForSelector('#overModal:not([hidden])', { timeout: 10000 }); await p.waitForTimeout(800);
+      await sweep(p, 'golf-over');
+    } else if (mode === 'island') {
       await p.evaluate((id) => { const f = Game.debugState().fx; f.pack[id] = [0, 6, 13, 18]; f.money[id] = 260; }, hostId);
       await p.evaluate(() => { const t = Island.debug().trader; Island.test.warp(t.x, t.y + 8); });
       await p.waitForTimeout(500); await sweep(p, 'island-play');
@@ -237,6 +248,7 @@ function auditPage() {
     await sweep(ph, mode + '-phone-quiz');
     await ph.tap('#fxQuizClose'); await ph.waitForTimeout(300);
     if (mode === 'island') await ph.evaluate(() => { const id = Game.debugState().hostId, f = Game.debugState().fx; f.pack[id] = [0, 6]; f.energy[id] = 300; });
+    if (mode === 'golf') await ph.evaluate(() => { Game.debugState().fx.shots[Game.debugState().hostId] = 1; });
     await ph.waitForTimeout(400);
     await sweep(ph, mode + '-phone-play');
     if (mode === 'island') {
@@ -247,6 +259,7 @@ function auditPage() {
   };
   await movement('factory');
   await movement('island');
+  await movement('golf');
 
   // ---------- report ----------
   const lines = [];

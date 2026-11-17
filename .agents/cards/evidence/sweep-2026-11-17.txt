@@ -1,0 +1,43 @@
+== platform-check (desktop and phone, every page and main action)
+no problems found
+== two-player: Pufferfish Party, Factory, Survival Island
+puffer | lobby host sees: Marcus,Livia | guest sees: Marcus,Livia | guest walked in the lobby: n/a
+puffer | host results: Livia wins! | info card hidden: true
+puffer | guest results: You win! | info card hidden: true
+puffer | errors: []
+factory | lobby host sees: Marcus,Livia | guest sees: Marcus,Livia | guest walked in the lobby: false
+factory | host results: You win! | info card hidden: true
+factory | guest results: Marcus wins! | info card hidden: true
+factory | errors: []
+island | lobby host sees: Marcus,Livia | guest sees: Marcus,Livia | guest walked in the lobby: false
+island | host results: You win! | info card hidden: true
+island | guest results: Marcus wins! | info card hidden: true
+island | errors: []
+== two-player: Via Golf
+lobby host: {"phase":"lobby","mode":"golf","golfers":2,"canShoot":false} | guest: {"phase":"lobby","mode":"golf","golfers":2,"canShoot":false}
+lobby: guest drag sent a shot? false
+guest after a wrong answer: shots 0
+shots host/guest: 3 2
+host mouse shot → host state {"x":38.87037860119198,"y":159.55538901307116,"sunk":false} | host screen {"x":38.87037860119198,"y":159.55538901307116,"moving":false,"sunk":false} | guest screen {"x":38.87037860119198,"y":159.55538901307116,"moving":false,"sunk":false} | strokes [1]
+same spot on both screens: true
+guest finger shot → strokes [1] | state {"x":29.67577304734729,"y":147.5828016524926,"sunk":false} | same on both screens: true
+keyboard aim shown: true | prompt: ADaimWSpowerEshoot
+keyboard shot strokes 1 → 2
+drag with no shots → banner: Answer a question to get a shot | prompt: SpaceAnswer a question to get a shot | shot sent: false
+water shot → {"ball":{"x":114,"y":198,"sunk":false},"strokes":2,"tee":{"x":114,"y":198},"water":true} | back at the tee: true
+one-shot sink exists from here: true
+host sunk: true | host prompt: In the cup! Waiting for the others | guest banner: ⛳ Marcus sank it in 3!
+host can shoot again on this hole: false
+time up → guest hole strokes 0 → 6 (par 3: expect max(strokes+1, 6)) | guest banner: Time's up! Hole 2 counts as 6 strokes
+next hole: 2 | balls back at the tee: true | guest banner: ⛳ Hole 3: Aqueduct · Par 4
+host over: You win! | fewest strokes over 3 holes (par 9) | Marcus (you)12 strokes (+3)Livia14 strokes (+5) | HUD hidden: true | shots hidden: true | prompt hidden: true
+guest over: Marcus wins! | fewest strokes over 3 holes (par 9) | Marcus12 strokes (+3)Livia (you)14 strokes (+5) | HUD hidden: true | shots hidden: true | prompt hidden: true
+play again → host lobby | guest lobby | guest results hidden: true
+errors: []
+== own ball never jumps back after stopping
+shot 1: reached its final spot at 1237 ms; samples after that which moved: 0; final (57.5, 32.8)
+shot 2: reached its final spot at 816 ms; samples after that which moved: 0; final (45.3, 47.3)
+shot 3: reached its final spot at 895 ms; samples after that which moved: 0; final (104.3, 28.7)
+== ui-audit (all 9 themes, every page and game state incl. Via Golf, desktop and phone)
+errors: []
+0 distinct issues

@@ -1,0 +1,6 @@
+wall: rolled right to x 224.4 (wall face at 228), then came back and stopped at x 110.2 | bounced: true
+column: same shot without / with a column → end (217, 116) / (89, 163) | deflected: true
+sand: rolling down 330 px/s → stops at y 135 with sand vs y 210 on grass | sand stops it sooner: true
+slope: a ball at rest on '>' at x 78 rolls to x 136 | pushed: true
+water: rolling into the water row → water: true, roll ends at y 145 (row 12 starts at y 144)
+cup: slow roll → sunk true; fast roll → rolled over the cup to x 225 (cup at 150) before coming back: true, finally sunk true

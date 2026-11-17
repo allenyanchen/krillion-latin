@@ -15,18 +15,19 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800&family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen&family=Patrick+Hand&display=swap" rel="stylesheet">
   <meta name="theme-color" content="#011021">
-  <script src="theme.js?v=202611092028"></script>
-  <link rel="stylesheet" href="style.css?v=202611092028">
+  <script src="theme.js?v=202611171248"></script>
+  <link rel="stylesheet" href="style.css?v=202611171248">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-  <script src="config.js?v=202611092028"></script>
-  <script src="questions.js?v=202611092028"></script>
-  <script src="scene.js?v=202611092028" defer></script>
-  <script src="store.js?v=202611092028" defer></script>
-  <script src="factory.js?v=202611092028" defer></script>
-  <script src="voyage3d.js?v=202611092028" defer></script>
-  <script src="island.js?v=202611092028" defer></script>
-  <script src="game.js?v=202611092028" defer></script>
-  <script src="app.js?v=202611092028" defer></script>
+  <script src="config.js?v=202611171248"></script>
+  <script src="questions.js?v=202611171248"></script>
+  <script src="scene.js?v=202611171248" defer></script>
+  <script src="store.js?v=202611171248" defer></script>
+  <script src="factory.js?v=202611171248" defer></script>
+  <script src="voyage3d.js?v=202611171248" defer></script>
+  <script src="island.js?v=202611171248" defer></script>
+  <script src="golf.js?v=202611171248" defer></script>
+  <script src="game.js?v=202611171248" defer></script>
+  <script src="app.js?v=202611171248" defer></script>
 </head>
 <body>
   <!-- ============ App shell (dashboard pages) ============ -->
@@ -62,6 +63,8 @@
       <canvas id="fxText" class="scene-text" aria-hidden="true"></canvas>
       <canvas id="isCanvas" aria-label="Survival island"></canvas>
       <canvas id="isText" class="scene-text" aria-hidden="true"></canvas>
+      <canvas id="gfCanvas" aria-label="Golf course"></canvas>
+      <canvas id="gfText" class="scene-text" aria-hidden="true"></canvas>
       <div class="fx-hud g-card">
         <canvas id="fxMini" class="fx-mini" aria-label="Map of the factory"></canvas>
         <div id="fxGoal" class="fx-goal"></div>
@@ -70,7 +73,9 @@
       <div id="fxPrompt" class="fx-prompt" hidden></div>
       <div id="fxBanner" class="fx-banner" role="status" hidden></div>
       <div id="isSale" class="is-sale" role="status" hidden></div>
-      <div class="fx-keys-help">Move <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows · Use <kbd>E</kbd> · Questions <kbd>Space</kbd></div>
+      <div class="fx-keys-help gf-keys">Aim <kbd>A</kbd><kbd>D</kbd> · Power <kbd>W</kbd><kbd>S</kbd> · Shoot <kbd>E</kbd> or drag back · Questions <kbd>Space</kbd></div>
+      <div id="gfShots" class="energy gf-shots" hidden><span class="lbl">Shots</span><span class="pips"><i class="pip"></i><i class="pip"></i><i class="pip"></i></span><b>0</b></div>
+      <div class="fx-keys-help fx-move-help">Move <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows · Use <kbd>E</kbd> · Questions <kbd>Space</kbd></div>
       <div id="isCine" class="is-cine" hidden></div>
       <div id="isPack" class="is-pack" hidden></div>
       <div id="isShop" class="is-shop" hidden role="dialog" aria-label="Shipwright's shop">
@@ -165,6 +170,12 @@
             <div id="isMinSeg" class="seg"><button data-v="4">4m</button><button data-v="6">6m</button><button data-v="8">8m</button><button data-v="10">10m</button></div>
             <span class="lbl">Energy per correct answer</span>
             <div id="isGainSeg" class="seg"><button data-v="50">+50</button><button data-v="100">+100</button><button data-v="150">+150</button><button data-v="200">+200</button></div>
+          </div>
+          <div id="golfOpts" class="opt-group" hidden>
+            <span class="lbl">Holes</span>
+            <div id="gfHolesSeg" class="seg"><button data-v="3">3</button><button data-v="6">6</button></div>
+            <span class="lbl">Time per hole</span>
+            <div id="gfSecsSeg" class="seg"><button data-v="60">1m</button><button data-v="90">1.5m</button><button data-v="120">2m</button></div>
           </div>
           <label class="toggle"><input type="checkbox" id="playToggle" checked><span></span>I'm playing too</label>
           <button id="startBtn" class="btn primary big"><i data-icon="play"></i>Start game</button>

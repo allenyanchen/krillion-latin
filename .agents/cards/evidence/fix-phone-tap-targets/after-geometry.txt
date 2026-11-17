@@ -1,0 +1,33 @@
+After the fix. Hit-tested with the skill's probe/snapshot.js on every screen of tools/ui-audit.js (parchment theme).
+Phone game screens (390x844, touch): controls under 44 px where a finger reaches them:
+  factory-phone-lobby: none
+  factory-phone-play: none
+  factory-phone-quiz: none
+  golf-phone-lobby: none
+  golf-phone-play: none
+  golf-phone-quiz: none
+  island-phone-lobby: none
+  island-phone-play: none
+  island-phone-quiz: none
+  island-phone-shop: none
+  puffer-lobby-guest: none
+  puffer-play-guest: none
+  total: 0
+D-pad down arrow (Move forward), reachable area where it is not covered by the quiz or shop (before: 52x30):
+  factory-phone-lobby: 52x52 (box 52x52)
+  factory-phone-play: 52x52 (box 52x52)
+  golf-phone-play: 52x52 (box 52x52)
+  island-phone-lobby: 52x52 (box 52x52)
+  island-phone-play: 52x52 (box 52x52)
+Desktop (1366x768, mouse) is unchanged: on the 29 desktop screens probed before and after the fix, the boxes of Leave, Start game, Copy invite link, Answer questions and Send are identical (Leave 97x35 in the top bar, 79x39 on the results card).
+Other pages on a touch phone (hit-tested at the first scroll position):
+#/characters | button 'Color 1' | 46x36
+#/characters | button 'Color 2' | 47x36
+#/characters | button 'Color 3' | 46x36
+#/characters | button 'Color 4' | 46x36
+#/characters | button 'Color 5' | 47x36
+#/characters | button 'Color 6' | 46x36
+#/signin | link 'Terms of Service' | 96x19
+#/signin | link 'Privacy Policy' | 79x19
+total under 44: 8
+(Characters page swatches are 46x46 boxes; 36 px above only because the bottom tab bar covers their lower part at the first scroll position; scrolled into view the whole 46x46 responds. Sign-in Terms/Privacy are inline text links in a sentence, which the tap-size guideline exempts.)

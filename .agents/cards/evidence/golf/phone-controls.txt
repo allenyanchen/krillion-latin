@@ -1,0 +1,4 @@
+right answer with 3 saved → feedback: Right! You already have 3 shots saved. | shots: 3
+E shows the aim: true | prompt: ◀ ▶ aim · ▲ ▼ power · E shoots
+D-pad + E shot → strokes 0 → 1 | shots left 2 | ball {"x":52.995979232244,"y":34.477863210558375,"moving":false,"sunk":false}
+errors: []
