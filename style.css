@@ -826,6 +826,8 @@ html[data-mode="light"] .brand-text, html[data-mode="light"] .page-head h1, html
 .game-page[data-mode="golf"] #scene, .game-page[data-mode="golf"] #fxCanvas, .game-page[data-mode="golf"] #fxText, .game-page[data-mode="golf"] .fx-mini, .game-page[data-mode="golf"] .fx-move-help, .game-page[data-mode="golf"] #fxEnergy { display: none; }
 .game-page[data-mode="golf"] .fx-touch, .game-page[data-mode="golf"][data-phase="lobby"] .gf-keys, .game-page[data-mode="golf"][data-phase="over"] .gf-keys, .game-page[data-mode="golf"][data-phase="over"] .gf-shots { display: none; }
 .game-page[data-mode="golf"] .fx-board li { grid-template-columns: 18px 10px 1fr auto auto; }
+.game-page:not([data-mode="golf"]) .gf-next { display: none; }
+.gf-next { width: 100%; justify-content: center; }
 .fx-board b.hole-n { color: var(--muted); min-width: 22px; text-align: right; }
 .gf-shots { position: absolute; z-index: 4; left: 12px; bottom: 48px; }
 .gf-shots .lbl { color: var(--muted); }

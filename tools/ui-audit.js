@@ -182,7 +182,9 @@ function auditPage() {
     if (ONLY && !mode.includes(ONLY) && !ONLY.includes(mode)) return;
     const p = await newPage(mode);
     await p.goto(BASE + '#/host/subjunctive-all'); await p.waitForTimeout(400);
-    await p.click(`.mode[data-mode="${mode}"]`); await p.fill('#hName', 'Marcus'); await p.click('#hGo');
+    await p.click(`.mode[data-mode="${mode}"]`); await p.fill('#hName', 'Marcus');
+    if (mode === 'golf') { await p.click('#hGfCourse [data-v="random"]'); await p.click('#hGfSecs [data-v="0"]'); } // desktop: random course, no time limit
+    await p.click('#hGo');
     await p.waitForTimeout(1600);
     await sweep(p, mode + '-lobby');
     await p.click('#startBtn');

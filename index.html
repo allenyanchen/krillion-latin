@@ -15,19 +15,19 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800&family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen&family=Patrick+Hand&display=swap" rel="stylesheet">
   <meta name="theme-color" content="#011021">
-  <script src="theme.js?v=202611172048"></script>
-  <link rel="stylesheet" href="style.css?v=202611172048">
+  <script src="theme.js?v=202611172131"></script>
+  <link rel="stylesheet" href="style.css?v=202611172131">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-  <script src="config.js?v=202611172048"></script>
-  <script src="questions.js?v=202611172048"></script>
-  <script src="scene.js?v=202611172048" defer></script>
-  <script src="store.js?v=202611172048" defer></script>
-  <script src="factory.js?v=202611172048" defer></script>
-  <script src="voyage3d.js?v=202611172048" defer></script>
-  <script src="island.js?v=202611172048" defer></script>
-  <script src="golf.js?v=202611172048" defer></script>
-  <script src="game.js?v=202611172048" defer></script>
-  <script src="app.js?v=202611172048" defer></script>
+  <script src="config.js?v=202611172131"></script>
+  <script src="questions.js?v=202611172131"></script>
+  <script src="scene.js?v=202611172131" defer></script>
+  <script src="store.js?v=202611172131" defer></script>
+  <script src="factory.js?v=202611172131" defer></script>
+  <script src="voyage3d.js?v=202611172131" defer></script>
+  <script src="island.js?v=202611172131" defer></script>
+  <script src="golf.js?v=202611172131" defer></script>
+  <script src="game.js?v=202611172131" defer></script>
+  <script src="app.js?v=202611172131" defer></script>
 </head>
 <body>
   <!-- ============ App shell (dashboard pages) ============ -->
@@ -69,6 +69,7 @@
         <canvas id="fxMini" class="fx-mini" aria-label="Map of the factory"></canvas>
         <div id="fxGoal" class="fx-goal"></div>
         <ol id="fxBoard" class="fx-board"></ol>
+        <button id="gfNext" class="btn small gf-next" hidden><span>Next hole</span></button>
       </div>
       <div id="fxPrompt" class="fx-prompt" hidden></div>
       <div id="fxBanner" class="fx-banner" role="status" hidden></div>
@@ -175,7 +176,9 @@
             <span class="lbl">Holes</span>
             <div id="gfHolesSeg" class="seg"><button data-v="3">3</button><button data-v="6">6</button></div>
             <span class="lbl">Time per hole</span>
-            <div id="gfSecsSeg" class="seg"><button data-v="60">1m</button><button data-v="90">1.5m</button><button data-v="120">2m</button></div>
+            <div id="gfSecsSeg" class="seg"><button data-v="60">1m</button><button data-v="90">1.5m</button><button data-v="120">2m</button><button data-v="180">3m</button><button data-v="0">No limit</button></div>
+            <span class="lbl">Course</span>
+            <div id="gfCourseSeg" class="seg"><button data-v="roman">Roman landmarks</button><button data-v="random">Random</button></div>
           </div>
           <label class="toggle"><input type="checkbox" id="playToggle" checked><span></span>I'm playing too</label>
           <button id="startBtn" class="btn primary big"><i data-icon="play"></i>Start game</button>

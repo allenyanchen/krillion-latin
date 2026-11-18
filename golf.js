@@ -138,14 +138,16 @@ window.Golf = (() => {
       '    .....T......',
     ] },
   ];
-  for (const h of HOLES) {
+  function parseHole(h) {
     h.grid = Array.from({ length: N }, (_, j) => (h.map[j] || '').padEnd(N, ' ').slice(0, N));
     h.cols = [];
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
       const c = h.grid[j][i], p = { x: i * TS + TS / 2, y: j * TS + TS / 2 };
       if (c === 'T') h.tee = p; else if (c === 'O') h.cup = p; else if (c === 'o') h.cols.push(p);
     }
+    return h;
   }
+  HOLES.forEach(parseHole);
 
   // ---------- physics (deterministic: same input, same roll in every browser) ----------
   const DT = 1 / 240, FRAME_MS = 1000 / 120, MAX_STEPS = 7200;
@@ -197,6 +199,77 @@ window.Golf = (() => {
     return { vx, vy };
   }
 
+  // ---------- random holes ----------
+  // A fairway that bends once (L) or twice (Z) from a tee near the bottom to a cup near the top, 3-4 tiles wide,
+  // with sand, columns, a small pond and sometimes a slope. Each hole is kept only if the real physics can sink it
+  // in 1 or 2 shots (found by trying shots). Par: 2 for one bend (like Via Appia) or when one shot can sink it,
+  // 3 for two bends.
+  const RANDOM_NAMES = ['Via Nova', 'Hortus', 'Thermae', 'Basilica', 'Atrium', 'Campus Martius', 'Palatine', 'Capitol', 'Forum Boarium', 'Pantheon', 'Ostia', 'Baiae', 'Tibur', 'Insula', 'Arena', 'Aventine'];
+  function rng32(seed) { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  const SEARCH = []; // the shots tried when checking a hole: 36 directions x 4 strengths
+  for (let a = 0; a < 36; a++) for (const pw of [0.3, 0.5, 0.75, 1]) SEARCH.push([Math.round(Math.cos(a * Math.PI / 18) * pw * MAX_V), Math.round(Math.sin(a * Math.PI / 18) * pw * MAX_V)]);
+  // Fewest shots that sink the hole, up to maxShots (null if none found).
+  function fewestShots(h, maxShots = 2) {
+    let frontier = [{ x: h.tee.x, y: h.tee.y }];
+    const seen = new Set();
+    for (let n = 1; n <= maxShots; n++) {
+      const next = [];
+      for (const f of frontier) for (const [vx, vy] of SEARCH) {
+        const r = simulate(h, f.x, f.y, vx, vy);
+        if (r.sunk) return n;
+        if (r.water) continue;
+        const k = Math.round(r.x / 6) + ',' + Math.round(r.y / 6);
+        if (!seen.has(k)) { seen.add(k); next.push({ x: r.x, y: r.y }); }
+      }
+      // keep the spots closest to the cup for the next shot
+      frontier = next.sort((a, b) => Math.hypot(a.x - h.cup.x, a.y - h.cup.y) - Math.hypot(b.x - h.cup.x, b.y - h.cup.y)).slice(0, 24);
+    }
+    return null;
+  }
+  function randomHole(rand, name) {
+    const pick = (a, b) => a + Math.floor(rand() * (b - a + 1));
+    for (let attempt = 0; attempt < 60; attempt++) {
+      const W = pick(3, 4), lo = 1, hi = N - 1 - W;           // a W x W block fits from lo..hi (border stays outside)
+      const g = Array.from({ length: N }, () => Array(N).fill(' '));
+      const carve = ([x1, y1], [x2, y2]) => { for (let y = Math.min(y1, y2); y <= Math.max(y1, y2) + W - 1; y++) for (let x = Math.min(x1, x2); x <= Math.max(x1, x2) + W - 1; x++) g[y][x] = '.'; };
+      const x0 = pick(lo, hi);
+      let x1 = pick(lo, hi); while (Math.abs(x1 - x0) < 6) x1 = pick(lo, hi);
+      const oneBend = rand() < 0.5;
+      const pts = oneBend
+        ? [[x0, hi], [x0, pick(lo, lo + 3)], [x1, null]]                       // L: up, then across
+        : [[x0, hi], [x0, pick(7, 10)], [x1, null], [x1, pick(lo, lo + 2)]];   // Z: up, across, up
+      pts[2][1] = pts[1][1];
+      for (let i = 1; i < pts.length; i++) carve(pts[i - 1], pts[i]);
+      const c = Math.floor(W / 2), [tx, ty] = [pts[0][0] + c, pts[0][1] + c], [ox, oy] = [pts[pts.length - 1][0] + c, pts[pts.length - 1][1] + c];
+      const free = (x, y, r = 2) => g[y][x] === '.' && Math.max(Math.abs(x - tx), Math.abs(y - ty)) > r && Math.max(Math.abs(x - ox), Math.abs(y - oy)) > r;
+      const spots = []; for (let y = 1; y < N - 1; y++) for (let x = 1; x < N - 1; x++) if (free(x, y)) spots.push([x, y]);
+      const place = (fn, tries) => { for (let k = 0; k < tries && spots.length; k++) { const [x, y] = spots[Math.floor(rand() * spots.length)]; if (fn(x, y)) return; } };
+      for (let k = pick(1, 2); k > 0; k--) place((x, y) => { if (!free(x, y) || !free(x + 1, y) || !free(x, y + 1) || !free(x + 1, y + 1)) return false; g[y][x] = g[y][x + 1] = g[y + 1][x] = g[y + 1][x + 1] = 's'; return true; }, 30);
+      for (let k = pick(0, 3); k > 0; k--) place((x, y) => { if (!free(x, y, 3)) return false; g[y][x] = 'o'; return true; }, 30);
+      if (rand() < 0.6) place((x, y) => { if (!free(x, y) || !free(x + 1, y) || !free(x, y + 1) || !free(x + 1, y + 1)) return false; g[y][x] = g[y][x + 1] = g[y + 1][x] = g[y + 1][x + 1] = '~'; return true; }, 30);
+      if (rand() < 0.4) { const dir = '<>^v'[pick(0, 3)]; place((x, y) => { if (!free(x, y) || !free(x + 1, y)) return false; g[y][x] = g[y][x + 1] = dir; return true; }, 30); }
+      g[ty][tx] = 'T'; g[oy][ox] = 'O';
+      const map = g.map((r) => r.join(''));
+      const h = parseHole({ name, par: 0, map });
+      const n = fewestShots(h, 2);
+      if (n == null) continue;
+      return { name, par: n === 1 || oneBend ? 2 : 3, map };
+    }
+    return { name: HOLES[0].name, par: HOLES[0].par, map: HOLES[0].map }; // never seen in testing; a designed hole as a fallback
+  }
+  function randomCourse(seed, count) {
+    const rand = rng32(seed), names = RANDOM_NAMES.slice();
+    return Array.from({ length: count }, () => randomHole(rand, names.splice(Math.floor(rand() * names.length), 1)[0]));
+  }
+  // The holes this game plays: the random ones the host made (in fx.maps), else the designed ones.
+  let courseCache = { key: null, holes: HOLES };
+  function holesOf(f) {
+    if (!f || !f.maps) return HOLES;
+    const key = f.seed + ':' + f.maps.length;
+    if (courseCache.key !== key) courseCache = { key, holes: f.maps.map((m) => parseHole({ name: m.name, par: m.par, map: m.map })) };
+    return courseCache.holes;
+  }
+
   // ---------- helpers ----------
   const COUNTDOWN = 3500, RECAP_MS = 4500, MAX_SAVED = 3;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -223,7 +296,7 @@ window.Golf = (() => {
   const quiz = { q: null, serial: -1, locked: false, next: null, unlockTimer: 0, wait: false, readyAt: 0, contTimer: 0 };
   const now = () => Date.now() + (clockOffset || 0);
 
-  const hole = () => HOLES[fx && fx.hole != null ? fx.hole : 0];
+  const hole = () => holesOf(fx)[fx && fx.hole != null ? fx.hole : 0];
   function player(id) { return S ? S.players.find((p) => p.id === id) : null; }
   function colorOf(id) { const p = player(id); return p ? Scene.COLORS[p.look.c] || '#fff' : '#888'; }
   const mySection = () => (fx && ctx ? fx.sec[ctx.me.id] : undefined);
@@ -236,7 +309,8 @@ window.Golf = (() => {
   function totalToPar(id) {
     if (!fx) return 0;
     const done = fx.between ? fx.hole + 1 : fx.hole;
-    let d = 0; for (let i = 0; i < done && i < HOLES.length; i++) d += strokesOf(id, i) - HOLES[i].par;
+    const hs = holesOf(fx);
+    let d = 0; for (let i = 0; i < done && i < hs.length; i++) d += strokesOf(id, i) - hs[i].par;
     return d;
   }
   function totalStrokes(id, upTo) { let n = 0; for (let i = 0; i < upTo; i++) n += strokesOf(id, i); return n; }
@@ -354,7 +428,7 @@ window.Golf = (() => {
     for (let d = 6; d < len; d += 4) { const x = bx + Math.cos(a) * d, y = by + Math.sin(a) * d; R(wg, '#0b1320', x - 1, y - 1, 3, 3); R(wg, col, x, y, 1, 1); }
   }
   function draw(t) {
-    const h = hole(), hi = fx ? fx.hole : 0;
+    const h = hole(), hi = (fx && fx.maps ? fx.seed : 'roman') + ':' + (fx ? fx.hole : 0);
     if (!holeCv || holeCvFor !== hi) { holeCv = buildHole(h); holeCvFor = hi; }
     wg.drawImage(holeCv, 0, 0);
     // water shimmer and slope arrows move with time
@@ -605,6 +679,16 @@ window.Golf = (() => {
     el.querySelector('b').textContent = n;
     el.classList.toggle('no-shots', n < 1 && gameLive()); // not 'empty': that class is taken by the chat's empty message
     $('#fxQBtn').hidden = el.hidden;
+    const next = $('#gfNext'), canNext = !!(ctx.me.host && gameLive() && !between());
+    if (next.hidden === canNext) next.hidden = !canNext;
+    if (canNext) next.lastChild.textContent = fx.hole + 1 < fx.holes ? 'Next hole' : 'Finish the game';
+  }
+  // Host only: end the current hole for everyone now (unfinished players score as if time ran out).
+  function nextHole() {
+    if (!ctx.me.host || !gameLive() || between()) return;
+    const last = fx.hole + 1 >= fx.holes;
+    UI.confirm(last ? 'Finish the game?' : 'Move on to the next hole?', 'Anyone who hasn\'t finished this hole scores par + 3 (or their strokes + 1 if that is more).', last ? 'Finish' : 'Next hole')
+      .then((ok) => { if (ok && active && S && S.phase === 'play') host.skip = true; });
   }
   function renderHud() {
     if (!fx || !S) return;
@@ -624,6 +708,7 @@ window.Golf = (() => {
     const T = now();
     if (T < f.startAt) return 'Starting…';
     if (f.between && T < f.between) return 'Next hole…';
+    if (!f.holeEnd) return `Hole ${f.hole + 1}/${f.holes} · no time limit`;
     const left = Math.max(0, f.holeEnd - T);
     return `Hole ${f.hole + 1}/${f.holes} · ⏱ ${Math.floor(left / 60000)}:${String(Math.floor((left % 60000) / 1000)).padStart(2, '0')}`;
   }
@@ -637,10 +722,10 @@ window.Golf = (() => {
       lastEvN = ev.n;
       const mine = ev.id === ctx.me.id;
       if (ev.type === 'ans') { if (mine) onAnswerResult(ev); }
-      else if (ev.type === 'hole') { const h = HOLES[ev.hole]; banner(`⛳ Hole ${ev.hole + 1}: <b>${esc(h.name)}</b> · Par ${h.par}`, 3000); }
+      else if (ev.type === 'hole') { const h = holesOf(fx)[ev.hole]; banner(`⛳ Hole ${ev.hole + 1}: <b>${esc(h.name)}</b> · Par ${h.par}`, 3000); }
       else if (ev.type === 'holeEnd' && amPlaying()) {
-        const n = strokesOf(ctx.me.id, ev.hole), par = HOLES[ev.hole].par, sunk = ev.sunk && ev.sunk.includes(ctx.me.id);
-        banner(sunk ? `Hole ${ev.hole + 1}: <b>${n}</b> strokes · ${scoreName(n, par)}` : `Time's up! Hole ${ev.hole + 1} counts as <b>${n}</b> strokes`, 4000);
+        const n = strokesOf(ctx.me.id, ev.hole), par = holesOf(fx)[ev.hole].par, sunk = ev.sunk && ev.sunk.includes(ctx.me.id);
+        banner(sunk ? `Hole ${ev.hole + 1}: <b>${n}</b> strokes · ${scoreName(n, par)}` : ev.why === 'host' ? `The host moved on. Hole ${ev.hole + 1} counts as <b>${n}</b> strokes` : `Time's up! Hole ${ev.hole + 1} counts as <b>${n}</b> strokes`, 4000);
       }
     }
   }
@@ -694,8 +779,9 @@ window.Golf = (() => {
   const host = {
     qsrc: [], qstate: new Map(),
     initState(opts) {
-      const holes = clamp(Number(opts.gfHoles) || 3, 1, HOLES.length), secs = [60, 90, 120].includes(Number(opts.gfSecs)) ? Number(opts.gfSecs) : 90;
-      return { holes, secs, sec: {}, shots: {}, strokes: {}, balls: {}, shot: {}, hole: 0, holeEnd: 0, between: 0, startAt: 0, evs: [] };
+      const holes = clamp(Number(opts.gfHoles) || 3, 1, HOLES.length), secs = [60, 90, 120, 180, 0].includes(Number(opts.gfSecs)) ? Number(opts.gfSecs) : 90;
+      const course = opts.gfCourse === 'random' ? 'random' : 'roman';
+      return { holes, secs, course, seed: 0, maps: null, sec: {}, shots: {}, strokes: {}, balls: {}, shot: {}, hole: 0, holeEnd: 0, between: 0, startAt: 0, evs: [] };
     },
     assignSections(S) {
       const f = S.fx; if (!f) return;
@@ -707,23 +793,34 @@ window.Golf = (() => {
       this.qsrc = (src || []).filter((q) => q.answers && q.answers.filter((a) => String(a).trim()).length);
       this.qstate.clear();
       this.reset(S);
+      this.makeCourse(f);
       f.startAt = Date.now() + COUNTDOWN;
       this.beginHole(S, 0, f.startAt);
       S.phase = 'play';
       this.ev(S, { type: 'start' });
     },
     beginHole(S, i, at) {
-      const f = S.fx, h = HOLES[i];
-      f.hole = i; f.holeEnd = at + f.secs * 1000; f.between = 0;
+      const f = S.fx, h = holesOf(f)[i];
+      f.hole = i; f.holeEnd = f.secs ? at + f.secs * 1000 : 0; f.between = 0; this.skip = false; // 0 = no time limit
       for (const id in f.sec) { f.balls[id] = { x: h.tee.x, y: h.tee.y, sunk: false }; (f.strokes[id] = f.strokes[id] || [])[i] = 0; }
       this.ev(S, { type: 'hole', hole: i });
     },
     reset(S) {
       const f = S.fx;
+      if (f.course === 'random' && f.startAt) f.maps = null; // back in the lobby after a game: a new random course (kept when a game starts)
       Object.assign(f, { shots: {}, strokes: {}, balls: {}, shot: {}, hole: 0, holeEnd: 0, between: 0, startAt: 0, evs: [] });
       this.assignSections(S);
       S.players.forEach((p) => (p.score = 0));
     },
+    // Random course: made by the host (in the lobby, so the lobby shows the real first hole) and sent to everyone.
+    makeCourse(f) {
+      if (f.course !== 'random') { f.maps = null; return false; }
+      if (f.maps && f.maps.length === f.holes) return false;
+      f.seed = 1 + Math.floor(Math.random() * 2147483646);
+      f.maps = randomCourse(f.seed, f.holes);
+      return true;
+    },
+    skip: false, // set by the host's Next hole button
     ev(S, e) { const f = S.fx; f.evs.push({ n: ++evN, ...e }); if (f.evs.length > 30) f.evs.splice(0, f.evs.length - 30); dirtyAt = dirtyAt || Date.now(); },
     sendQuestion(S, id) {
       const qs = this.qsrc; if (!qs.length) return;
@@ -757,7 +854,7 @@ window.Golf = (() => {
       if (prev && prev.hole === f.hole && T < prev.at + prev.dur) return; // still rolling
       const v = shotVel(Number(m.vx) || 0, Number(m.vy) || 0);
       if (v.vx * v.vx + v.vy * v.vy < 100) return;
-      const r = simulate(HOLES[f.hole], b.x, b.y, v.vx, v.vy);
+      const r = simulate(holesOf(f)[f.hole], b.x, b.y, v.vx, v.vy);
       f.shots[id]--;
       f.strokes[id][f.hole] = (f.strokes[id][f.hole] || 0) + 1 + (r.water ? 1 : 0);
       const at = clamp(Number(m.at) || T, T - 1500, T + 200); // the shooter's start time, so every screen shares one timeline
@@ -766,8 +863,8 @@ window.Golf = (() => {
       b.sunk = r.sunk;
       dirtyAt = dirtyAt || T;
     },
-    endHole(S) {
-      const f = S.fx, par = HOLES[f.hole].par, sunk = [];
+    endHole(S, why = '') {
+      const f = S.fx, par = holesOf(f)[f.hole].par, sunk = [];
       for (const id in f.sec) {
         const st = f.strokes[id] || (f.strokes[id] = []);
         if (f.balls[id] && f.balls[id].sunk) sunk.push(id);
@@ -775,10 +872,12 @@ window.Golf = (() => {
       }
       for (const p of S.players) { let n = 0; for (let i = 0; i <= f.hole; i++) n += (f.strokes[p.id] || [])[i] || 0; p.score = n; }
       f.between = Date.now() + RECAP_MS;
-      this.ev(S, { type: 'holeEnd', hole: f.hole, sunk });
+      this.ev(S, { type: 'holeEnd', hole: f.hole, sunk, why });
     },
     tick(S, broadcast) {
-      const f = S.fx; if (!f || S.phase !== 'play') return;
+      const f = S.fx; if (!f) return;
+      if (S.phase === 'lobby') { if (this.makeCourse(f)) broadcast(); return; }
+      if (S.phase !== 'play') return;
       const T = Date.now();
       if (T >= f.startAt) {
         if (f.between) {
@@ -796,7 +895,8 @@ window.Golf = (() => {
           const ids = Object.keys(f.sec).filter((id) => { const p = S.players.find((q) => q.id === id); return p && !p.gone; });
           const rest = ids.every((id) => { const s = f.shot[id]; return !s || s.hole !== f.hole || T >= s.at + s.dur; });
           const allIn = ids.length > 0 && ids.every((id) => f.balls[id] && f.balls[id].sunk);
-          if (rest && (allIn || T >= f.holeEnd)) { this.endHole(S); dirtyAt = 0; broadcast(); return; }
+          const timeUp = f.holeEnd > 0 && T >= f.holeEnd;
+          if (this.skip || (rest && (allIn || timeUp))) { const why = this.skip && !allIn ? 'host' : ''; this.skip = false; this.endHole(S, why); dirtyAt = 0; broadcast(); return; }
         }
       }
       if (dirtyAt && T - dirtyAt >= 80) { dirtyAt = 0; broadcast(); }
@@ -823,6 +923,7 @@ window.Golf = (() => {
       $('#fxQuizClose').addEventListener('click', () => active && closeQuiz());
       $('#fxQuiz').addEventListener('pointerdown', (e) => { if (active && !e.target.closest('#fxQuizClose') && cont()) e.preventDefault(); });
       $('#fxqChoices').addEventListener('click', (e) => { if (!active) return; const b = e.target.closest('.tile'); if (b) answer(Number(b.dataset.i)); });
+      $('#gfNext').addEventListener('click', () => active && nextHole());
     }
     $('#fxQBtn .bolt').textContent = '⛳'; // answers give shots here, not energy
     resize();
@@ -838,7 +939,7 @@ window.Golf = (() => {
     if (was) {
       closeQuiz(); Object.assign(quiz, { q: null, serial: -1, locked: false, next: null, wait: false }); clearTimeout(quiz.unlockTimer); renderCont();
       if ($('#fxPrompt')) { $('#fxPrompt').hidden = true; $('#fxBanner').hidden = true; }
-      $('#gfShots').hidden = true;
+      $('#gfShots').hidden = true; $('#gfNext').hidden = true;
       $('#fxQuizClose').innerHTML = 'Back to factory <kbd>Space</kbd>';
       $('#fxQBtn .bolt').textContent = '⚡'; $('#fxqEnergy').hidden = false;
     }
@@ -871,13 +972,13 @@ window.Golf = (() => {
     };
   }
   const test = {
-    HOLES, simulate,
+    HOLES, simulate, randomCourse, fewestShots, parseHole, holesOf,
     shoot(vx, vy) { shoot(vx, vy); },
     toScreen,
   };
 
   return {
-    HOLES, debug, test,
+    HOLES, holesOf, debug, test,
     attach(c) { ctx = c; },
     host,
     onState, onPos() {}, onShot, onQuestion, deactivate, statusText,

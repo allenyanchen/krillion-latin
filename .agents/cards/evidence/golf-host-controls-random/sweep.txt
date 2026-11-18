@@ -1,0 +1,67 @@
+== platform-check (desktop and phone, every page and main action)
+no problems found
+== two-player: Pufferfish Party, Factory, Survival Island
+puffer | lobby host sees: Marcus,Livia | guest sees: Marcus,Livia | guest walked in the lobby: n/a
+puffer | host results: You win! | info card hidden: true
+puffer | guest results: Marcus wins! | info card hidden: true
+puffer | errors: []
+factory | lobby host sees: Marcus,Livia | guest sees: Marcus,Livia | guest walked in the lobby: false
+factory | host results: You win! | info card hidden: true
+factory | guest results: Marcus wins! | info card hidden: true
+factory | errors: []
+island | lobby host sees: Marcus,Livia | guest sees: Marcus,Livia | guest walked in the lobby: false
+island | host results: You win! | info card hidden: true
+island | guest results: Marcus wins! | info card hidden: true
+island | errors: []
+== two-player: Via Golf, Roman landmarks
+lobby labels host: {"labels":"Marcus #7bd389 / Livia #c1121f","allInOwnColor":true} | guest: {"labels":"Livia #c1121f / Marcus #7bd389","allInOwnColor":true}
+lobby host: {"phase":"lobby","mode":"golf","golfers":2,"canShoot":false} | guest: {"phase":"lobby","mode":"golf","golfers":2,"canShoot":false}
+lobby: guest drag sent a shot? false
+guest after a wrong answer: shots 0
+shots host/guest: 3 2
+play labels host: {"labels":"Marcus #7bd389 / Livia #c1121f","allInOwnColor":true} | guest: {"labels":"Livia #c1121f / Marcus #7bd389","allInOwnColor":true}
+host mouse shot → host state {"x":38.87037860119198,"y":159.55538901307116,"sunk":false} | host screen {"x":38.87037860119198,"y":159.55538901307116,"moving":false,"sunk":false} | guest screen {"x":38.87037860119198,"y":159.55538901307116,"moving":false,"sunk":false} | strokes [1]
+same spot on both screens: true
+guest screen: host's shot started rolling from the shot message at 252 ms (ball moving at 252 ms); the host's state arrived at 369 ms | rolled before the state: true
+guest finger shot → strokes [1] | state {"x":39.10221127576959,"y":160.17831639373102,"sunk":false} | same on both screens: true
+keys pressed → strokes 1 → 1 | prompt: Drag back from anywhere and let go to shoot
+phone: D-pad and E button hidden in Golf: true | shot counter + answer button shown: true true
+drag with no shots → banner: Answer a question to get a shot | prompt: SpaceAnswer a question to get a shot | shot sent: false
+water shot → {"ball":{"x":114,"y":198,"sunk":false},"strokes":2,"tee":{"x":114,"y":198},"water":true} | back at the tee: true
+one-shot sink exists from here: true
+host sunk: true | host prompt: In the cup! Waiting for the others | guest banner: ⛳ Marcus sank it in 3!
+host can shoot again on this hole: false
+time up → guest hole strokes 0 → 6 (par 3: expect max(strokes+1, 6)) | guest banner: Time's up! Hole 2 counts as 6 strokes
+next hole: 2 | balls back at the tee: true | guest banner: ⛳ Hole 3: Aqueduct · Par 4
+host over: You win! | fewest strokes over 3 holes (par 9) | Marcus (you)11 strokes (+2)Livia14 strokes (+5) | HUD hidden: true | shots hidden: true | prompt hidden: true
+guest over: Marcus wins! | fewest strokes over 3 holes (par 9) | Marcus11 strokes (+2)Livia (you)14 strokes (+5) | HUD hidden: true | shots hidden: true | prompt hidden: true
+play again → host lobby | guest lobby | guest results hidden: true
+errors: []
+== two-player: Via Golf host controls + Random
+host page: time choices ["1 min","1.5 min","2 min","3 min","No limit"] | course choices ["Roman landmarks","Random"]
+lobby: host picked random / secs 0 | on: course Random | time No limit
+seeds host 212174186 guest 212174186 | random holes: ["Pantheon","Insula","Thermae"] pars [3,2,3] | guest has exactly the same holes (name, par and every map row): true
+top bar host: Hole 1/3 · no time limit | guest: Hole 1/3 · no time limit
+Next hole button: host sees true "Next hole" | guest sees false
+no limit: after 5 s still on hole 1 | between: false
+confirm: Move on to the next hole? | Anyone who hasn't finished this hole scores par + 3 (or their strokes + 1 if that is more).
+after Next hole: recap true | hole 1 strokes ["Marcus 6","Livia 6"] (par 3 + 3 = 6 ) | guest banner: The host moved on. Hole 1 counts as 6 strokes
+next hole on both screens: 2 2 | guest banner: ⛳ Hole 2: Insula · Par 2 | guest info card: Hole 2 of 3 · Insula · Par 2
+pressed "Next hole"
+pressed "Finish the game"
+results host: fewest strokes over 3 holes (par 8) | guest: Marcus17 strokes (+9)Livia (you)17 strokes (+9) | course par is 8
+errors: []
+== 204 random holes (Node, real physics)
+204 random holes: every one solvable in 1-2 shots with par 2-3 (par 2 whenever one shot can sink it): true (bad 0) | par 2: 112, par 3: 92 | designed-hole fallbacks: 0
+time to build a 6-hole course (ms): median 76, slowest 245
+same seed, same course: true
+== the six designed holes
+1. Via Appia       par 2 | fewest strokes found: 2 | water hits seen: 0 | longest roll 1.4 s | same input same result: true
+2. Forum Fountain  par 3 | fewest strokes found: 1 | water hits seen: 15 | longest roll 1.3 s | same input same result: true
+3. Aqueduct        par 4 | fewest strokes found: 2 | water hits seen: 24350 | longest roll 4.0 s | same input same result: true
+4. Circus Maximus  par 3 | fewest strokes found: 2 | water hits seen: 0 | longest roll 1.4 s | same input same result: true
+5. Tiber Bridge    par 3 | fewest strokes found: 2 | water hits seen: 35696 | longest roll 1.5 s | same input same result: true
+6. Colosseum       par 4 | fewest strokes found: 2 | water hits seen: 0 | longest roll 1.9 s | same input same result: true
+== ui-audit (all 9 themes, every page and game state; desktop golf on a random course with no time limit)
+errors: []
+0 distinct issues

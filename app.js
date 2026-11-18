@@ -483,8 +483,10 @@
             <span class="lbl">Holes</span>
             <div class="seg" id="hGfHoles">${[3, 6].map((v) => `<button data-v="${v}" class="${v === 3 ? 'on' : ''}">${v} holes</button>`).join('')}</div>
             <span class="lbl">Time per hole</span>
-            <div class="seg" id="hGfSecs">${[[60, '1 min'], [90, '1.5 min'], [120, '2 min']].map(([v, l]) => `<button data-v="${v}" class="${v === 90 ? 'on' : ''}">${l}</button>`).join('')}</div>
-            <p class="note">Each correct answer gives one shot. If time runs out, a hole counts as par + 3.</p>
+            <div class="seg" id="hGfSecs">${[[60, '1 min'], [90, '1.5 min'], [120, '2 min'], [180, '3 min'], [0, 'No limit']].map(([v, l]) => `<button data-v="${v}" class="${v === 90 ? 'on' : ''}">${l}</button>`).join('')}</div>
+            <span class="lbl">Course</span>
+            <div class="seg" id="hGfCourse"><button data-v="roman" class="on">Roman landmarks</button><button data-v="random">Random</button></div>
+            <p class="note">Each correct answer gives one shot. If time runs out, a hole counts as par + 3. You can also move everyone to the next hole at any time. Random makes new holes (par 2 or 3) every game.</p>
           </div>
           <label class="toggle"><input type="checkbox" id="hPlay" checked><span></span>I'm playing too</label>
           <p class="note">Turn this off to just run the game from the front of the room.</p>
@@ -494,14 +496,14 @@
       </div>`;
     $('[data-fish-big]', main).innerHTML = UI.fish('fish-art');
     $('#hLives').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; lives = Number(b.dataset.v); $$('#hLives button').forEach((x) => x.classList.toggle('on', x === b)); };
-    let mode = 'puffer', winMode = 'time', minutes = 5, goal = 2500, gain = 100, diff = 'medium', isMinutes = 6, isGain = 100, gfHoles = 3, gfSecs = 90;
+    let mode = 'puffer', winMode = 'time', minutes = 5, goal = 2500, gain = 100, diff = 'medium', isMinutes = 6, isGain = 100, gfHoles = 3, gfSecs = 90, gfCourse = 'roman';
     const segPick = (sel, fn) => { $(sel).onclick = (e) => { const b = e.target.closest('button'); if (!b) return; $$(sel + ' button').forEach((x) => x.classList.toggle('on', x === b)); fn(b.dataset.v); }; };
     segPick('#hWin', (v) => { winMode = v; $('#hMinRow').hidden = v !== 'time'; $('#hGoalRow').hidden = v !== 'money'; });
     segPick('#hMin', (v) => (minutes = Number(v)));
     segPick('#hGoal', (v) => (goal = Number(v)));
     segPick('#hGain', (v) => (gain = Number(v)));
     segPick('#hDiff', (v) => (diff = v)); segPick('#hIsMin', (v) => (isMinutes = Number(v))); segPick('#hIsGain', (v) => (isGain = Number(v)));
-    segPick('#hGfHoles', (v) => (gfHoles = Number(v))); segPick('#hGfSecs', (v) => (gfSecs = Number(v)));
+    segPick('#hGfHoles', (v) => (gfHoles = Number(v))); segPick('#hGfSecs', (v) => (gfSecs = Number(v))); segPick('#hGfCourse', (v) => (gfCourse = v));
     $$('.mode[data-mode]').forEach((c) => (c.onclick = () => {
       mode = c.dataset.mode;
       $$('.mode[data-mode]').forEach((x) => { x.classList.toggle('selected', x === c); x.setAttribute('aria-pressed', x === c); });
@@ -512,7 +514,7 @@
       const nm = $('#hName').value.trim();
       if (!nm) { $('#hName').classList.add('invalid'); $('#hName').focus(); return UI.toast('Enter your name first.'); }
       Store.setName(nm);
-      Game.host(set, { mode, lives, fuseStart: fuse, winMode, minutes, goal, gain, diff, isMinutes, isGain, gfHoles, gfSecs, hostPlays: $('#hPlay').checked });
+      Game.host(set, { mode, lives, fuseStart: fuse, winMode, minutes, goal, gain, diff, isMinutes, isGain, gfHoles, gfSecs, gfCourse, hostPlays: $('#hPlay').checked });
       location.hash = '#/game';
     };
   };

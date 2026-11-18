@@ -578,6 +578,7 @@ window.Game = (() => {
       if (s.mode === 'golf') {
         document.querySelectorAll('#gfHolesSeg button').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === s.fx.holes));
         document.querySelectorAll('#gfSecsSeg button').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === s.fx.secs));
+        document.querySelectorAll('#gfCourseSeg button').forEach((b) => b.classList.toggle('on', b.dataset.v === s.fx.course));
       }
       if (island) {
         const f = s.fx;
@@ -685,7 +686,7 @@ window.Game = (() => {
       $('#againBtn').hidden = !me.host; $('#againWait').hidden = me.host;
     } else if (over && s.mode === 'golf') {
       const w = s.players.find((p) => p.id === s.winner), f = s.fx;
-      let par = 0; for (let i = 0; i < f.holes; i++) par += Golf.HOLES[i].par;
+      let par = 0; const hs = Golf.holesOf(f); for (let i = 0; i < f.holes; i++) par += hs[i].par;
       const toPar = (n) => (n === 0 ? 'even' : n > 0 ? '+' + n : '−' + -n);
       $('#winnerName').textContent = w ? (w.id === me.id ? 'You win!' : `${w.name} wins!`) : 'Game over';
       $('#overSub').textContent = `fewest strokes over ${f.holes} holes (par ${par})`;
@@ -854,7 +855,7 @@ window.Game = (() => {
       const fxSeg = (sel, key, num) => document.querySelectorAll(sel + ' button').forEach((b) => (b.onclick = () => Host.configure({ fx: { [key]: num ? Number(b.dataset.v) : b.dataset.v } })));
       fxSeg('#fxWinSeg', 'winMode', false); fxSeg('#fxMinSeg', 'minutes', true); fxSeg('#fxGoalSeg', 'goal', true); fxSeg('#fxGainSeg', 'gain', true);
       fxSeg('#isDiffSeg', 'diff', false); fxSeg('#isMinSeg', 'minutes', true); fxSeg('#isGainSeg', 'gain', true);
-      fxSeg('#gfHolesSeg', 'holes', true); fxSeg('#gfSecsSeg', 'secs', true);
+      fxSeg('#gfHolesSeg', 'holes', true); fxSeg('#gfSecsSeg', 'secs', true); fxSeg('#gfCourseSeg', 'course', false);
       $('#answerForm').onsubmit = (e) => {
         e.preventDefault();
         const v = $('#answerIn').value.trim();
