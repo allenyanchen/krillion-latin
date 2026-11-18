@@ -105,7 +105,7 @@ Every color comes from `theme.js`, which generates tokens from one accent color 
   | Layout | Bottom-left stack | Elsewhere |
   |---|---|---|
   | Desktop | key hints 12, energy 48, answer button 100, backpack 152 | prompt centered at 64 |
-  | Touch (`pointer: coarse`) | D-pad, then energy 186, answer button 238, backpack 290 | prompt 342 (Via Golf has no backpack: prompt 290) |
+  | Touch (`pointer: coarse`) | D-pad, then energy 186, answer button 238, backpack 290 | prompt 342 (Via Golf has no D-pad: shots 56, answer button 108, prompt 160) |
 
   The top bar is `.g-top` and the info card is `.fx-hud`. New HUD pieces must fit this stack. Touch overrides go at the **end** of `style.css` so they win.
 - **Touch:** no keyboard hints (hide `kbd`); every action needs an on-screen button; every control is at least 44×44 px where a finger reaches it (the `pointer: coarse` block at the end of `style.css`). Big overlays such as the closed Customize drawer take taps only on their visible part.

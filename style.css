@@ -824,7 +824,7 @@ html[data-mode="light"] .brand-text, html[data-mode="light"] .page-head h1, html
 #gfCanvas { position: absolute; inset: 0 auto auto 0; display: block; image-rendering: pixelated; touch-action: none; }
 .game-page:not([data-mode="golf"]) #gfCanvas, .game-page:not([data-mode="golf"]) #gfText, .game-page:not([data-mode="golf"]) .gf-shots, .game-page:not([data-mode="golf"]) .gf-keys { display: none; }
 .game-page[data-mode="golf"] #scene, .game-page[data-mode="golf"] #fxCanvas, .game-page[data-mode="golf"] #fxText, .game-page[data-mode="golf"] .fx-mini, .game-page[data-mode="golf"] .fx-move-help, .game-page[data-mode="golf"] #fxEnergy { display: none; }
-.game-page[data-mode="golf"][data-phase="over"] .fx-touch, .game-page[data-mode="golf"][data-phase="lobby"] .fx-touch, .game-page[data-mode="golf"][data-phase="lobby"] .gf-keys, .game-page[data-mode="golf"][data-phase="over"] .gf-keys, .game-page[data-mode="golf"][data-phase="over"] .gf-shots { display: none; }
+.game-page[data-mode="golf"] .fx-touch, .game-page[data-mode="golf"][data-phase="lobby"] .gf-keys, .game-page[data-mode="golf"][data-phase="over"] .gf-keys, .game-page[data-mode="golf"][data-phase="over"] .gf-shots { display: none; }
 .game-page[data-mode="golf"] .fx-board li { grid-template-columns: 18px 10px 1fr auto auto; }
 .fx-board b.hole-n { color: var(--muted); min-width: 22px; text-align: right; }
 .gf-shots { position: absolute; z-index: 4; left: 12px; bottom: 48px; }
@@ -833,7 +833,7 @@ html[data-mode="light"] .brand-text, html[data-mode="light"] .page-head h1, html
 .gf-shots .pip { width: 14px; height: 14px; background: var(--well); box-shadow: inset 0 0 0 2px var(--line); border-radius: 50%; }
 .gf-shots .pip.on { background: #f4f1e8; box-shadow: 0 0 0 2px var(--edge), inset -2px -2px 0 #c9c2b2; }
 .gf-shots b { color: var(--accent-hi); min-width: 14px; }
-.gf-shots.empty { box-shadow: 0 0 0 var(--px) var(--edge), inset 0 0 0 2px var(--bad); }
+.gf-shots.no-shots { box-shadow: 0 0 0 var(--px) var(--edge), inset 0 0 0 2px var(--bad); }
 
 /* ---------- Pufferfish Party: HUD card (same card as Factory / Island), banner, question card ---------- */
 .game-page:not([data-mode="puffer"]) .pf-hud, .game-page:not([data-mode="puffer"]) .pf-banner { display: none; }
@@ -959,4 +959,5 @@ html[data-mode="light"] .brand-text, html[data-mode="light"] .page-head h1, html
   .swatches { grid-template-columns: repeat(6, 1fr); } /* 18 colors in 3 rows of fingertip-sized swatches */
   .fx-hud { top: 86px; } /* the touch top bar is taller (44px buttons) */
 }
-@media (pointer: coarse) { .gf-shots { bottom: 186px; } .game-page[data-mode="golf"] .fx-prompt { bottom: 290px; } }
+/* touch: Golf aims by dragging, so it has no D-pad and its HUD stack starts lower (clear of the Customize handle) */
+@media (pointer: coarse) { .gf-shots { bottom: 56px; } .game-page[data-mode="golf"] .fx-qbtn { bottom: 108px; } .game-page[data-mode="golf"] .fx-prompt { bottom: 160px; } }

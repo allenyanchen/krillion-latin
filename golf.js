@@ -1,13 +1,14 @@
 // Puffer: Via Golf (2D top-down mini golf through Roman landmarks).
 // Everyone plays the same hole at once; balls pass through each other. Each correct answer in the shared
-// quiz gives one shot (up to MAX_SAVED). Drag back on the hole and let go to shoot (or aim with A/D or
-// ◀▶, set power with W/S or ▲▼, and shoot with E). Walls and columns bounce, sand slows, slopes push,
+// quiz gives one shot (up to MAX_SAVED). One motion aims and hits: drag back on the hole (mouse or finger)
+// and let go. Walls and columns bounce, sand slows, slopes push,
 // water sends the ball back to where it was hit from (+1 stroke). When every ball is in or the hole's time
 // runs out, the next hole starts; unfinished players score par + 3 (or their strokes + 1 if more).
 // Lowest total after the last hole wins.
 //
-// Networking matches the other movement modes: the host is authoritative. A client sends 'gf-shot' with
-// an integer velocity; the host runs simulate() and broadcasts where the ball stops plus the shot itself.
+// Networking works like Factory's movement: the shooter sends 'gf-shot' (integer velocity + start time on the
+// shared clock) to everyone, and every screen rolls the ball itself from that, straight away. The host also
+// checks the shot, runs the same simulate() and broadcasts the score and where the ball stops.
 // simulate() uses only + - * / and Math.sqrt, so every browser replays exactly the same roll.
 window.Golf = (() => {
   'use strict';
@@ -209,12 +210,13 @@ window.Golf = (() => {
 
   // ---------- module state ----------
   let ctx = null, active = false;
-  let cv, g, tcv, tg, wc, wg, dpr = 1, last = 0;
+  let cv, g, tcv, tg, wc, wg, dpr = 1;
   let clockOffset = null, fx = null, S = null;
   const view = { ox: 0, oy: 0, k: 1 };
-  const keys = { left: false, right: false, up: false, down: false };
-  const aim = { a: -Math.PI / 2, p: 0.5, kb: false, drag: null, holeSeen: -1 };
-  let pred = null;                      // my shot, rolling locally before the host's copy arrives
+  const aim = { drag: null };
+  // Shots rolling on this screen before the host's copy arrives: mine, or another player's from their own message.
+  const early = new Map(); // id -> { n, start, r, sentAt }
+  let lastLabels = [];     // name tags drawn in the last frame (read by tests)
   const parts = [], floaters = [], seenEnd = new Map(), paths = new Map();
   let lastEvN = -1, prompt = null, bannerTimer = 0, lastPhase = null, holeCv = null, holeCvFor = -1;
   let quizOpen = false;
@@ -246,13 +248,13 @@ window.Golf = (() => {
     if (!r) { r = simulate(h, s.x0, s.y0, s.vx, s.vy); paths.set(key, r); if (paths.size > 40) paths.delete(paths.keys().next().value); }
     return r;
   }
-  function shotStart(id, s) { return pred && id === ctx.me.id && pred.n === s.n ? pred.start : s.at; }
+  function shotStart(id, s) { const e = early.get(id); return e && e.n === s.n ? e.start : s.at; }
   function ballView(id) {
     const b = fx && fx.balls && fx.balls[id]; if (!b) return null;
-    const s = fx.shot && fx.shot[id], h = hole(), T = now();
-    if (id === ctx.me.id && pred && (!s || s.n < pred.n)) {
-      const r = pred.r, i = Math.min(r.path.length / 2 - 1, Math.max(0, Math.floor((T - pred.start) / FRAME_MS)));
-      return { x: r.path[i * 2], y: r.path[i * 2 + 1], moving: T - pred.start < r.dur, sunk: false };
+    const s = fx.shot && fx.shot[id], h = hole(), T = now(), e = early.get(id);
+    if (e && (!s || s.n < e.n)) {
+      const r = e.r, i = Math.min(r.path.length / 2 - 1, Math.max(0, Math.floor((T - e.start) / FRAME_MS)));
+      return { x: r.path[i * 2], y: r.path[i * 2 + 1], moving: T - e.start < r.dur, sunk: false };
     }
     if (s && s.hole === fx.hole) {
       const el = T - shotStart(id, s);
@@ -266,7 +268,7 @@ window.Golf = (() => {
   }
   function atRest(id) {
     const s = fx && fx.shot && fx.shot[id];
-    if (id === ctx.me.id && pred) return false;
+    if (id === ctx.me.id && early.has(id)) return false;
     return !s || s.hole !== fx.hole || now() >= s.at + s.dur;
   }
   function canShoot() {
@@ -279,8 +281,8 @@ window.Golf = (() => {
   function layout() {
     const vw = window.innerWidth, vh = window.innerHeight, page = $('#gamePage');
     const wide = vw >= 900, touch = matchMedia('(pointer: coarse)').matches, lobby = !S || S.phase === 'lobby';
-    // touch: stay above the prompt, which sits in the backpack's slot of the HUD stack (290px + its height)
-    let l = 12, r = vw - 12, t = $('#gTop').getBoundingClientRect().bottom + 10, b = vh - (touch && !lobby ? 346 : 56);
+    // touch: Golf has no D-pad, so its HUD stack is shorter: stay above the prompt (160px + its height)
+    let l = 12, r = vw - 12, t = $('#gTop').getBoundingClientRect().bottom + 10, b = vh - (touch && !lobby ? 216 : 56);
     if (wide && !page.classList.contains('panel-closed')) r = $('#sidePanel').getBoundingClientRect().left - 12;
     const card = lobby ? $('#lobbyCard') : $('#fxStage .fx-hud');
     if (card && card.offsetParent) { const cr = card.getBoundingClientRect(); if (wide) l = cr.right + 12; else t = Math.max(t, cr.bottom + 8); }
@@ -345,7 +347,7 @@ window.Golf = (() => {
     R(wg, 'rgba(0,0,0,.3)', x - 2, y + 2, 5, 2);
     R(wg, '#0b1320', x - 2, y - 3, 5, 7); R(wg, '#0b1320', x - 3, y - 2, 7, 5);
     R(wg, color, x - 2, y - 2, 5, 5); R(wg, color, x - 1, y - 3, 3, 1); R(wg, '#ffffff', x - 1, y - 2, 2, 1);
-    if (mine && canShoot() && !aim.drag && !aim.kb) { const b = Math.floor(t / 300) % 2; R(wg, '#ffffff', x - 1, y - 9 - b, 3, 1); R(wg, '#ffffff', x, y - 8 - b, 1, 1); }
+    if (mine && canShoot() && !aim.drag) { const b = Math.floor(t / 300) % 2; R(wg, '#ffffff', x - 1, y - 9 - b, 3, 1); R(wg, '#ffffff', x, y - 8 - b, 1, 1); }
   }
   function drawAim(bx, by, a, p) {
     const len = 10 + p * 60, col = p < 0.45 ? '#7bd389' : p < 0.8 ? '#ffd166' : '#ff6b6b';
@@ -369,29 +371,22 @@ window.Golf = (() => {
     // flag
     const fl = Math.floor(t / 250) % 2;
     R(wg, '#2b2b2b', h.cup.x, h.cup.y - 16, 1, 16); R(wg, '#e2453c', h.cup.x + 1, h.cup.y - 16, 7, 4 + fl); R(wg, '#ff7b6e', h.cup.x + 1, h.cup.y - 16, 7, 1);
-    // players: character beside the ball (lined up at the tee in the lobby)
+    // players: each is their ball (lined up at the tee in the lobby); names go on the text layer
     const list = S ? S.players.filter((p) => !p.gone && fx && fx.sec[p.id] != null) : [];
     const lobby = !S || S.phase === 'lobby';
     const drawn = [];
     list.forEach((p, i) => {
       let bx, by, sunk = false;
-      if (lobby || !fx.balls || !fx.balls[p.id]) { bx = h.tee.x + (i - (list.length - 1) / 2) * 18; by = h.tee.y + 10; }
+      if (lobby || !fx.balls || !fx.balls[p.id]) { bx = h.tee.x - 8; by = h.tee.y + 4 - i * 16; }
       else { const v = ballView(p.id); bx = v.x; by = v.y; sunk = v.sunk; }
       drawn.push({ p, bx, by, sunk, i });
     });
     const meId = ctx.me.id;
     drawn.sort((a, b) => (a.p.id === meId) - (b.p.id === meId) || a.by - b.by);
-    for (const d of drawn) {
-      const cx = lobby ? d.bx : d.sunk ? h.cup.x - 9 : d.bx - 8, sy = lobby ? d.by : d.sunk ? h.cup.y + 6 : d.by + 3;
-      Scene.drawCharacter(wg, cx, sy, d.p.look, { bob: Math.floor((t + d.i * 170) / 450) % 2 });
-      if (!lobby && !d.sunk) drawBall(d.bx, d.by, colorOf(d.p.id), d.p.id === meId, t);
-    }
+    for (const d of drawn) if (!d.sunk) drawBall(d.bx, d.by, colorOf(d.p.id), d.p.id === meId && !lobby, t);
     // my aim
     const mine = drawn.find((d) => d.p.id === meId);
-    if (mine && canShoot()) {
-      if (aim.drag && aim.drag.p > 0) drawAim(mine.bx, mine.by, aim.drag.a, aim.drag.p);
-      else if (aim.kb) drawAim(mine.bx, mine.by, aim.a, aim.p);
-    }
+    if (mine && canShoot() && aim.drag && aim.drag.p > 0) drawAim(mine.bx, mine.by, aim.drag.a, aim.drag.p);
     // particles
     for (let i = parts.length - 1; i >= 0; i--) {
       const q = parts[i], el = (t - q.t0) / 1000;
@@ -406,16 +401,22 @@ window.Golf = (() => {
     g.drawImage(wc, X, Y, WS * k, WS * k);
     // text layer: names, floating results, countdown
     tg.clearRect(0, 0, tcv.width, tcv.height);
-    // names: yours first, then any that don't overlap one already shown (players often stand close together)
-    const shown = [];
+    // name labels above the balls, in each player's color, yours first (balls often sit close together,
+    // e.g. at the tee or in the cup, so labels stack instead of covering each other)
+    const shown = []; lastLabels = [];
     tg.font = `700 ${Math.round(11 * dpr)}px 'Pixelify Sans', sans-serif`;
     for (const d of drawn.slice().reverse()) {
-      const cx = lobby ? d.bx : d.sunk ? h.cup.x - 9 : d.bx - 8, top = (lobby ? d.by : d.sunk ? h.cup.y + 6 : d.by + 3) - 24;
-      const s = toScreen(cx, top), w = tg.measureText(d.p.name).width / dpr + 6;
-      const box = { l: s.x - w / 2, r: s.x + w / 2, t: s.y - 8, b: s.y + 8 };
-      if (shown.some((o) => box.l < o.r && o.l < box.r && box.t < o.b && o.t < box.b)) continue;
+      const name = d.sunk ? d.p.name + ' ✓' : d.p.name;
+      const s = toScreen(d.sunk ? h.cup.x : d.bx, d.sunk ? h.cup.y : d.by), w = tg.measureText(name).width / dpr + 12;
+      const x = lobby ? s.x + 5 * view.k + w / 2 : s.x, y = lobby ? s.y : s.y - 6 * view.k - 12; // lobby: beside the ball
+      // a label that would overlap one already shown moves up a row (crowded spots stack their names)
+      let ly = y, box;
+      for (let k = 0; k < 8; k++, ly -= 20) {
+        box = { l: x - w / 2, r: x + w / 2, t: ly - 9, b: ly + 9 };
+        if (!shown.some((o) => box.l < o.r && o.l < box.r && box.t < o.b && o.t < box.b)) break;
+      }
       shown.push(box);
-      text(d.p.name, s.x, s.y, d.p.id === meId ? '#ffd166' : '#ffffff', 11);
+      label(name, x, ly, w, colorOf(d.p.id), d.p.id === meId); lastLabels.push({ name, color: colorOf(d.p.id), x: Math.round(x), y: Math.round(ly) });
     }
     for (let i = floaters.length - 1; i >= 0; i--) {
       const f = floaters[i], el = (performance.now() - f.t0) / 1400;
@@ -429,6 +430,14 @@ window.Golf = (() => {
       else if (left > -900) text('Tee off!', c.x, c.y, '#7bd389', 44, 1 + left / 900);
       if (between()) text(`Hole ${fx.hole + 1} done`, c.x, c.y, '#ffffff', 34);
     }
+  }
+  // A name tag: dark pill (white edge for your own) with the name in the player's color.
+  function label(str, x, y, w, color, mine) {
+    const X = (x - w / 2) * dpr, Y = (y - 9) * dpr, W = w * dpr, H = 18 * dpr;
+    tg.fillStyle = 'rgba(7,11,18,.82)'; tg.fillRect(X, Y, W, H);
+    if (mine) { tg.strokeStyle = '#ffffff'; tg.lineWidth = Math.max(1, dpr); tg.strokeRect(X + 0.5 * dpr, Y + 0.5 * dpr, W - dpr, H - dpr); }
+    tg.font = `700 ${Math.round(11 * dpr)}px 'Pixelify Sans', sans-serif`; tg.textAlign = 'center'; tg.textBaseline = 'middle';
+    tg.fillStyle = color; tg.fillText(str, x * dpr, y * dpr + dpr);
   }
   function text(str, x, y, color, size, alpha = 1) {
     if (alpha <= 0) return;
@@ -455,10 +464,10 @@ window.Golf = (() => {
     if (!canShoot()) return;
     const v = shotVel(vx, vy);
     if (v.vx * v.vx + v.vy * v.vy < 100) return; // a tiny drag is a cancel
-    const b = fx.balls[ctx.me.id], s = fx.shot[ctx.me.id];
-    pred = { n: (s ? s.n : 0) + 1, start: now(), r: simulate(hole(), b.x, b.y, v.vx, v.vy), sentAt: performance.now() };
-    ctx.send({ t: 'gf-shot', from: ctx.me.id, vx: v.vx, vy: v.vy });
-    aim.kb = false; prompt = null;
+    const b = fx.balls[ctx.me.id], s = fx.shot[ctx.me.id], n = (s ? s.n : 0) + 1, at = now();
+    early.set(ctx.me.id, { n, start: at, r: simulate(hole(), b.x, b.y, v.vx, v.vy), sentAt: performance.now() });
+    ctx.send({ t: 'gf-shot', from: ctx.me.id, vx: v.vx, vy: v.vy, n, at }); // to every screen, like Factory's 'pos'
+    prompt = null;
   }
   function onPointerDown(e) {
     if (!active || e.button > 0) return;
@@ -478,16 +487,20 @@ window.Golf = (() => {
     aim.drag = null;
     if (e.type === 'pointerup' && d.p > 0) shoot(Math.cos(d.a) * d.p * MAX_V, Math.sin(d.a) * d.p * MAX_V);
   }
-  function aimAtCup() {
-    const b = fx && fx.balls && fx.balls[ctx.me.id]; if (!b) return;
-    aim.a = Math.atan2(hole().cup.y - b.y, hole().cup.x - b.x); aim.p = 0.5; aim.holeSeen = fx.hole;
+  // Another player's shot, straight from their message: roll it here now from its speed, direction and start time.
+  function onShot(m) {
+    if (!active || !fx || !S || S.phase !== 'play' || !ctx || m.from === ctx.me.id) return;
+    const b = fx.balls && fx.balls[m.from], s = fx.shot && fx.shot[m.from];
+    if (!b || b.sunk || m.n !== (s ? s.n : 0) + 1) return; // already have it, or our view of that ball is behind
+    const v = shotVel(Number(m.vx) || 0, Number(m.vy) || 0), T = now();
+    early.set(m.from, { n: m.n, start: clamp(Number(m.at) || T, T - 1500, T + 200), r: simulate(hole(), b.x, b.y, v.vx, v.vy), sentAt: performance.now() });
   }
 
   // ---------- questions (shared full-screen quiz, as in island.js) ----------
   const decQ = (x) => { try { return JSON.parse(decodeURIComponent(escape(atob(x)))); } catch (e) { return null; } };
   function openQuiz() {
     if (!amPlaying() || S.phase !== 'play' || quizOpen) return;
-    quizOpen = true; keys.left = keys.right = keys.up = keys.down = false; aim.drag = null;
+    quizOpen = true; aim.drag = null;
     const hint = $('#fxQuiz .quiz-hint'); if (hint) hint.innerHTML = `Each correct answer gives <b>+1 shot</b> (save up to ${MAX_SAVED})`;
     $('#fxQuizClose').innerHTML = 'Back to the course <kbd>Space</kbd>';
     $('#fxqEnergy').hidden = true;
@@ -568,17 +581,6 @@ window.Golf = (() => {
     }
     if (typing()) return;
     if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); if (down && !e.repeat) toggleQuiz(); return; }
-    if (quizOpen) return;
-    const k = e.key.toLowerCase();
-    const map = { a: 'left', arrowleft: 'left', d: 'right', arrowright: 'right', w: 'up', arrowup: 'up', s: 'down', arrowdown: 'down' };
-    if (map[k]) { keys[map[k]] = down; if (down && canShoot()) aim.kb = true; e.preventDefault(); }
-    else if ((k === 'e' || k === 'enter') && down && !e.repeat) { useKey(); e.preventDefault(); }
-  }
-  // E (or the on-screen E button): show the aim first, then shoot with it
-  function useKey() {
-    if (!canShoot()) { if (amPlaying() && gameLive() && shotsOf(ctx.me.id) < 1) openQuiz(); return; }
-    if (!aim.kb) { aim.kb = true; return; }
-    shoot(Math.cos(aim.a) * aim.p * MAX_V, Math.sin(aim.a) * aim.p * MAX_V);
   }
 
   // ---------- HUD ----------
@@ -586,12 +588,11 @@ window.Golf = (() => {
     const el = $('#fxPrompt');
     let key = '', html = '', cls = '';
     if (amPlaying() && gameLive() && !between() && !quizOpen && fx.balls[ctx.me.id]) {
-      const b = fx.balls[ctx.me.id], touch = matchMedia('(pointer: coarse)').matches;
+      const b = fx.balls[ctx.me.id];
       if (b.sunk) { key = 'sunk'; html = '<span>In the cup! Waiting for the others</span>'; cls = 'muted'; }
       else if (!atRest(ctx.me.id)) key = '';
       else if (shotsOf(ctx.me.id) < 1) { key = 'noshot'; html = '<kbd>Space</kbd><span>Answer a question to get a shot</span>'; cls = 'alert'; }
-      else if (aim.kb) { key = 'kb'; html = touch ? '<span>◀ ▶ aim · ▲ ▼ power · E shoots</span>' : '<kbd>A</kbd><kbd>D</kbd><span>aim</span><kbd>W</kbd><kbd>S</kbd><span>power</span><kbd>E</kbd><span>shoot</span>'; }
-      else { key = 'shoot' + touch; html = touch ? '<span>Drag back and let go to shoot</span>' : '<kbd>E</kbd><span>Aim with keys, or drag back and let go to shoot</span>'; }
+      else { key = 'shoot'; html = '<span>Drag back from anywhere and let go to shoot</span>'; }
     }
     if (key === prompt) return; prompt = key;
     el.hidden = !key; el.innerHTML = html;
@@ -602,7 +603,7 @@ window.Golf = (() => {
     el.hidden = !(amPlaying() && S.phase === 'play');
     el.querySelectorAll('.pip').forEach((p, i) => p.classList.toggle('on', i < n));
     el.querySelector('b').textContent = n;
-    el.classList.toggle('empty', n < 1 && gameLive());
+    el.classList.toggle('no-shots', n < 1 && gameLive()); // not 'empty': that class is taken by the chat's empty message
     $('#fxQBtn').hidden = el.hidden;
   }
   function renderHud() {
@@ -636,7 +637,7 @@ window.Golf = (() => {
       lastEvN = ev.n;
       const mine = ev.id === ctx.me.id;
       if (ev.type === 'ans') { if (mine) onAnswerResult(ev); }
-      else if (ev.type === 'hole') { const h = HOLES[ev.hole]; banner(`⛳ Hole ${ev.hole + 1}: <b>${esc(h.name)}</b> · Par ${h.par}`, 3000); aimAtCup(); }
+      else if (ev.type === 'hole') { const h = HOLES[ev.hole]; banner(`⛳ Hole ${ev.hole + 1}: <b>${esc(h.name)}</b> · Par ${h.par}`, 3000); }
       else if (ev.type === 'holeEnd' && amPlaying()) {
         const n = strokesOf(ctx.me.id, ev.hole), par = HOLES[ev.hole].par, sunk = ev.sunk && ev.sunk.includes(ctx.me.id);
         banner(sunk ? `Hole ${ev.hole + 1}: <b>${n}</b> strokes · ${scoreName(n, par)}` : `Time's up! Hole ${ev.hole + 1} counts as <b>${n}</b> strokes`, 4000);
@@ -663,24 +664,19 @@ window.Golf = (() => {
   }
 
   // ---------- frame loop ----------
-  function update(dt) {
-    if (pred) {
-      const s = fx.shot && fx.shot[ctx.me.id];
-      if (s && s.n >= pred.n && now() >= Math.max(pred.start, s.at) + pred.r.dur) pred = null; // both copies have finished rolling: no jump back
-      else if ((!s || s.n < pred.n) && performance.now() - pred.sentAt > 2500) pred = null; // the host turned the shot down
+  function update() {
+    for (const [id, e] of early) {
+      const s = fx.shot && fx.shot[id];
+      if (s && s.n >= e.n && now() >= Math.max(e.start, s.at) + e.r.dur) early.delete(id); // both copies have finished rolling: no jump back
+      else if ((!s || s.n < e.n) && performance.now() - e.sentAt > 2500) early.delete(id); // the host turned the shot down
     }
-    if (canShoot() && aim.kb) {
-      aim.a += ((keys.right ? 1 : 0) - (keys.left ? 1 : 0)) * 2.2 * dt;
-      aim.p = clamp(aim.p + ((keys.up ? 1 : 0) - (keys.down ? 1 : 0)) * 0.8 * dt, 0.05, 1);
-    }
-    if (fx && aim.holeSeen !== fx.hole && fx.balls && fx.balls[ctx.me.id]) aimAtCup();
     rollEffects();
   }
   function frame() {
     if (!active) return;
-    const t = performance.now(), dt = Math.min(0.05, (t - last) / 1000); last = t;
+    const t = performance.now();
     if (S) {
-      layout(); update(dt); draw(t); renderPrompt(); renderShots();
+      layout(); update(); draw(t); renderPrompt(); renderShots();
       $('#gRound').textContent = statusText(S);
     }
     requestAnimationFrame(frame);
@@ -764,7 +760,8 @@ window.Golf = (() => {
       const r = simulate(HOLES[f.hole], b.x, b.y, v.vx, v.vy);
       f.shots[id]--;
       f.strokes[id][f.hole] = (f.strokes[id][f.hole] || 0) + 1 + (r.water ? 1 : 0);
-      f.shot[id] = { n: (prev ? prev.n : 0) + 1, hole: f.hole, x0: b.x, y0: b.y, vx: v.vx, vy: v.vy, at: T + 120, dur: r.dur, water: r.water, sunk: r.sunk };
+      const at = clamp(Number(m.at) || T, T - 1500, T + 200); // the shooter's start time, so every screen shares one timeline
+      f.shot[id] = { n: (prev ? prev.n : 0) + 1, hole: f.hole, x0: b.x, y0: b.y, vx: v.vx, vy: v.vy, at, dur: r.dur, water: r.water, sunk: r.sunk };
       if (!r.water) { b.x = r.x; b.y = r.y; }
       b.sunk = r.sunk;
       dirtyAt = dirtyAt || T;
@@ -817,18 +814,11 @@ window.Golf = (() => {
       window.addEventListener('resize', () => active && resize());
       window.addEventListener('keydown', (e) => onKey(e, true));
       window.addEventListener('keyup', (e) => onKey(e, false));
-      window.addEventListener('blur', () => { keys.left = keys.right = keys.up = keys.down = false; aim.drag = null; });
+      window.addEventListener('blur', () => { aim.drag = null; });
       cv.addEventListener('pointerdown', onPointerDown);
       cv.addEventListener('pointermove', onPointerMove);
       cv.addEventListener('pointerup', onPointerUp);
       cv.addEventListener('pointercancel', onPointerUp);
-      const hold = (sel, k) => {
-        const b = $(sel);
-        const on = (e) => { if (!active) return; e.preventDefault(); keys[k] = true; if (canShoot()) aim.kb = true; }, off = () => { keys[k] = false; };
-        b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointerleave', off); b.addEventListener('pointercancel', off);
-      };
-      hold('#fxLeft', 'left'); hold('#fxRight', 'right'); hold('#fxUp', 'up'); hold('#fxDown', 'down');
-      $('#fxUse').addEventListener('pointerdown', (e) => { if (!active) return; e.preventDefault(); useKey(); });
       $('#fxQBtn').addEventListener('click', () => { if (active) { openQuiz(); $('#fxQBtn').blur(); } });
       $('#fxQuizClose').addEventListener('click', () => active && closeQuiz());
       $('#fxQuiz').addEventListener('pointerdown', (e) => { if (active && !e.target.closest('#fxQuizClose') && cont()) e.preventDefault(); });
@@ -836,7 +826,6 @@ window.Golf = (() => {
     }
     $('#fxQBtn .bolt').textContent = '⛳'; // answers give shots here, not energy
     resize();
-    last = performance.now();
     requestAnimationFrame(frame);
   }
   function deactivate() {
@@ -844,8 +833,8 @@ window.Golf = (() => {
     active = false;
     if (was && $('#fxStage')) $('#fxStage').hidden = true;
     parts.length = 0; floaters.length = 0; seenEnd.clear(); paths.clear();
-    lastEvN = -1; fx = null; S = null; clockOffset = null; prompt = null; lastPhase = null; pred = null; holeCvFor = -1;
-    keys.left = keys.right = keys.up = keys.down = false; Object.assign(aim, { kb: false, drag: null, holeSeen: -1 });
+    lastEvN = -1; fx = null; S = null; clockOffset = null; prompt = null; lastPhase = null; holeCvFor = -1;
+    early.clear(); aim.drag = null;
     if (was) {
       closeQuiz(); Object.assign(quiz, { q: null, serial: -1, locked: false, next: null, wait: false }); clearTimeout(quiz.unlockTimer); renderCont();
       if ($('#fxPrompt')) { $('#fxPrompt').hidden = true; $('#fxBanner').hidden = true; }
@@ -860,7 +849,7 @@ window.Golf = (() => {
     if (fx && fx.hostNow) { const off = fx.hostNow - Date.now(); if (clockOffset == null || off > clockOffset) clockOffset = off; }
     if (ctx.me.host) clockOffset = 0;
     activate();
-    if (prevPhase && prevPhase !== s.phase && s.phase === 'lobby') { lastEvN = -1; seenEnd.clear(); paths.clear(); pred = null; }
+    if (prevPhase && prevPhase !== s.phase && s.phase === 'lobby') { lastEvN = -1; seenEnd.clear(); paths.clear(); early.clear(); }
     if (prevPhase && prevPhase !== s.phase && s.phase !== 'play') { closeQuiz(); Object.assign(quiz, { q: null, next: null, locked: false }); aim.drag = null; }
     if (s.phase === 'play' && prevPhase === 'lobby') {
       Object.assign(quiz, { q: null, next: null, locked: false });
@@ -875,7 +864,9 @@ window.Golf = (() => {
   function debug() {
     return {
       phase: S && S.phase, started: gameLive(), hole: fx ? fx.hole : 0, shots: ctx ? shotsOf(ctx.me.id) : 0, canShoot: canShoot(), quizOpen,
-      ball: ctx && fx && fx.balls ? ballView(ctx.me.id) : null, view: { ...view }, between: between(), aimKeys: aim.kb,
+      ball: ctx && fx && fx.balls ? ballView(ctx.me.id) : null, view: { ...view }, between: between(), early: Object.fromEntries([...early].map(([id, e]) => [id, e.n])),
+      labels: lastLabels, colors: S ? Object.fromEntries(S.players.map((p) => [p.name, colorOf(p.id)])) : {},
+      shotN: fx && fx.shot ? Object.fromEntries(Object.entries(fx.shot).map(([id, s]) => [id, s ? s.n : 0])) : {},
       balls: fx && fx.balls ? Object.fromEntries(Object.keys(fx.balls).map((id) => [id, ballView(id)])) : {},
     };
   }
@@ -889,7 +880,7 @@ window.Golf = (() => {
     HOLES, debug, test,
     attach(c) { ctx = c; },
     host,
-    onState, onPos() {}, onQuestion, deactivate, statusText,
+    onState, onPos() {}, onShot, onQuestion, deactivate, statusText,
     isActive: () => active,
   };
 })();

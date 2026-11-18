@@ -1,0 +1,3 @@
+== movement worked out between messages (Island, Factory)
+island: guest walked 2.5 s → 5 position messages reached the host; the host's screen moved the guest on 151 of 157 frames (biggest step between frames 1.8 px) | worked out between messages: true
+factory: guest walked 2.5 s → 4 position messages reached the host; the host's screen moved the guest on 136 of 157 frames (biggest step between frames 2.7 px) | worked out between messages: true

@@ -102,6 +102,7 @@ window.Game = (() => {
         if (m.t === 'pos' || m.t === 'fx-qa') { const mod = modOf(S && S.mode) || Factory; return m.t === 'pos' ? mod.onPos(m) : mod.onQuestion(m); }
         if (m.t === 'closed' && !me.host) return roomClosed();
         if (m.t === 'reject') { rejectedIds.add(m.id); if (m.id === me.id && !me.host) rejected(m.reason); return; }
+        if (m.t === 'gf-shot') Golf.onShot(m); // every screen rolls the shot from the shooter's own message; the host then also scores it
         if (me.host) Host.onMessage(m);
         else if (m.t === 'state' && m.s.code === code) {
           clearTimeout(joinTimer);
